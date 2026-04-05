@@ -10,6 +10,7 @@ import os
 from salt_pepper.detect import detect_salt_pepper
 from salt_pepper.filter import filter_salt_pepper
 from salt_pepper.evaluate import calculate_mse, calculate_psnr
+from salt_pepper.visualize import generate_histogram_base64
 from gaussian.placeholder import detect_gaussian, filter_gaussian
 from speckle.placeholder import detect_speckle, filter_speckle
 from utils.image_utils import decode_image, encode_image_base64
@@ -41,7 +42,7 @@ async def root():
 async def denoise_image(file: UploadFile = File(...)):
     """
     Main endpoint for image denoising.
-    Detects noise type and applies the best filter.
+    Detects noise type, applies the best filter, and generates histograms.
     """
     try:
         # Load image from the uploaded file
@@ -82,7 +83,16 @@ async def denoise_image(file: UploadFile = File(...)):
         mse = calculate_mse(image, denoised_image)
         psnr = calculate_psnr(mse)
         
-        # 4. Result Packaging
+        # 4. Visualization (Histograms)
+        hist_before = ""
+        hist_after = ""
+        try:
+            hist_before = generate_histogram_base64(image, "Original Photo Histogram")
+            hist_after = generate_histogram_base64(denoised_image, "Cleaned Photo Histogram")
+        except Exception as vis_err:
+            print(f"Visualization error: {vis_err}")
+        
+        # 5. Result Packaging
         result_b64 = encode_image_base64(denoised_image)
         
         return {
@@ -90,10 +100,14 @@ async def denoise_image(file: UploadFile = File(...)):
             "confidence": highest_confidence,
             "mse": mse,
             "psnr": psnr,
-            "processed_image": f"data:image/png;base64,{result_b64}" # Ready for browser display
+            "processed_image": f"data:image/png;base64,{result_b64}",
+            "histogram_original": f"data:image/png;base64,{hist_before}" if hist_before else "",
+            "histogram_denoised": f"data:image/png;base64,{hist_after}" if hist_after else ""
         }
         
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         return JSONResponse(status_code=500, content={"error": f"An error occurred: {str(e)}"})
 
 if __name__ == "__main__":

@@ -295,6 +295,17 @@
                 </div>
             </div>
 
+            <div class="comparison-grid" style="margin-top: 2rem;">
+                <div class="img-container">
+                    <h3>Original Histogram</h3>
+                    <img id="hist-original" src="" alt="Graph" style="max-height: 300px;">
+                </div>
+                <div class="img-container">
+                    <h3>Denoised Histogram</h3>
+                    <img id="hist-denoised" src="" alt="Graph" style="max-height: 300px;">
+                </div>
+            </div>
+
             <div class="metrics-grid">
                 <div class="metric-card">
                     <span>Noise Type</span>
@@ -381,6 +392,9 @@
 
                 // Update UI
                 document.getElementById('preview-denoised').src = data.processed_image;
+                document.getElementById('hist-original').src = data.histogram_original;
+                document.getElementById('hist-denoised').src = data.histogram_denoised;
+                
                 document.getElementById('m-type').innerText = data.detected_noise.replace('_', ' ').toUpperCase();
                 document.getElementById('m-psnr').innerText = data.psnr.toFixed(2) + ' dB';
                 document.getElementById('m-mse').innerText = data.mse.toFixed(2);
