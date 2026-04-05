@@ -1,67 +1,74 @@
-# 🌉 Noise Characterization & Removal Toolkit
+# 🌌 Noise Characterization & Removal Production Hub
 
-A sophisticated system for image noise diagnosis and suppression using **FastAPI**, **OpenCV**, **NumPy**, and **Matplotlib**.
-
-## 🚀 FEATURE OVERVIEW
-
-- **🧠 Auto-Noise Detection**: Analyzes pixel distributions to identify artifacts.
-- **🧂 Salt & Pepper Module (FULL)**: 
-    - **Detection**: Histogram-based outlier analysis (0 and 255 intensity peaks).
-    - **Filtering**: OpenCV Median Filter (`cv2.medianBlur`).
-    - **Evaluation**: Automatic MSE and PSNR scoring.
-- **📊 Advanced Visualization**: 
-    - Real-time Histogram generation (Before vs. After).
-    - Side-by-side comparison of the denoising effect.
-- **🏗️ Modular Architecture**: Separate modules for different noise types and utilities.
+A lightweight, robust, and academic-grade system for image noise analysis and restoration. This toolkit features an adaptive filtering core that dynamically scales processing power based on detected noise intensity.
 
 ---
 
-## 📂 PROJECT STRUCTURE
+## 🚀 ADAPTIVE FILTERING STRATEGY
 
-```text
-noise_toolkit/
-├── main.py             # FastAPI Core
-├── salt_pepper/        # S&P Implementation
-│   ├── detect.py       # Detection logic
-│   ├── filter.py       # Median filtering
-│   ├── evaluate.py     # Metrics (MSE/PSNR)
-│   └── visualize.py    # Matplotlib histograms
-├── gaussian/           # Placeholder
-├── speckle/            # Placeholder
-├── utils/              # Conversion helpers
-└── static/             # Premium UI
-```
+Unlike traditional static filters, this project implements a **load-balanced filtering approach** for Salt & Pepper noise:
+
+| Noise Ratio | Detected Level | Kernel Size | Strength |
+| :--- | :--- | :--- | :--- |
+| < 2% | Minimal | 3x3 | Sensitive |
+| 2% - 5% | Moderate | 5x5 | Balanced |
+| > 5% | Heavy | 7x7 | Maximum |
+
+**Fail-safe**: If Salt & Pepper noise is detected with less than **1%** ratio, the system treats it as "clean" and bypasses filtering to preserve detail.
 
 ---
 
-## 🛠️ HOW TO RUN
+## 🔬 NOISE DETECTION LOGIC
+
+The detection engine uses **threshold-based intensity analysis** rather than strict equality (which often fails on digital images due to compression):
+- **Pepper**: Identified if pixel value ≤ 10
+- **Salt**: Identified if pixel value ≥ 245
+- **Confidence**: Dynamically scaled based on the ratio of detected noisy pixels.
+
+---
+
+## 🧬 HONEST CORE METRICS
+
+We prioritize mathematical accuracy over "perfect scores":
+- **MSE (Float Precision)**: Calculated using NumPy over the full image intensity range.
+- **PSNR (Capped)**: Standard PSNR returns misleading `100` or `Infinity` on perfect images; our system caps PSNR at **50.0 dB** to reflect a realistic threshold of human perception.
+- **Placeholder Fail-safe**: If a placeholder module (Gaussian/Speckle) is chosen, the engine returns **-1.0** for all metrics to signal that no valid processing occurred.
+
+---
+
+## 🛠️ SETUP & EXECUTION
 
 1. **Install Requirements**:
    ```bash
    pip install -r requirements.txt
    ```
 
-2. **Launch Server**:
+2. **Launch Core**:
    ```bash
    python main.py
    ```
 
-3. **Open UI**:
-   Navigate to `http://localhost:8000` in your browser.
+3. **Access**:
+   - Web UI: `http://localhost:8000`
+   - API Docs: `http://localhost:8000/docs`
 
 ---
 
-## 📡 API REFERENCE
+## 📡 API REFERENCE - `POST /denoise`
 
-### `POST /denoise`
-**Input**: Multipart `file` (image).
-**Output**: 
-- `detected_noise`: (string)
-- `mse`/`psnr`: (float)
-- `processed_image`: (base64 string)
-- `histogram_original`: (base64 graph)
-- `histogram_denoised`: (base64 graph)
+**Input Type**: `multipart/form-data` with `file` field.
+
+**Sample JSON Result**:
+```json
+{
+  "detected_noise": "salt_pepper",
+  "confidence": 0.85,
+  "mse": 14.82,
+  "psnr": 36.42,
+  "processed_image": "data:image/png;base64,..."
+}
+```
 
 ---
 
-*Powered by Antigravity AI & OpenCV.*
+*Academic-grade implementation by Antigravity.*

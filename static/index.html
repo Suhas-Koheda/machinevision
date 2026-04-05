@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Denoise Toolkit | Noise Characterization & Removal</title>
+    <title>Noise Toolkit | Adaptive Denoising Engine</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -11,8 +11,7 @@
         :root {
             --bg-color: #0c111d;
             --card-bg: rgba(21, 29, 45, 0.6);
-            --primary: #6366f1;
-            --primary-hover: #4f46e5;
+            --primary: #3b82f6;
             --accent: #8b5cf6;
             --text-main: #f9fafb;
             --text-dim: #9ca3af;
@@ -20,320 +19,60 @@
             --glass-blur: blur(12px);
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Inter', sans-serif;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); min-height: 100vh; overflow-x: hidden; }
 
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            overflow-x: hidden;
-        }
+        header { padding: 2rem 4rem; display: flex; justify-content: space-between; border-bottom: 1px solid var(--border); backdrop-filter: var(--glass-blur); position: sticky; top: 0; z-index: 50; }
+        .logo { font-size: 1.5rem; font-weight: 700; background: linear-gradient(135deg, #fff 0%, #94a3b8 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
 
-        /* Abstract Background Elements */
-        .blob {
-            position: fixed;
-            width: 400px;
-            height: 400px;
-            filter: blur(80px);
-            z-index: -1;
-            opacity: 0.2;
-            border-radius: 50%;
-        }
-        .blob-1 { top: -10%; left: -10%; background: var(--primary); }
-        .blob-2 { bottom: -10%; right: -10%; background: var(--accent); }
+        .container { max-width: 1000px; margin: 4rem auto; padding: 0 2rem; }
+        .hero { text-align: center; margin-bottom: 4rem; }
+        .hero h1 { font-size: 3rem; font-weight: 800; margin-bottom: 1rem; }
+        .hero p { color: var(--text-dim); }
 
-        header {
-            padding: 2rem 4rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border);
-            backdrop-filter: var(--glass-blur);
-            position: sticky;
-            top: 0;
-            z-index: 50;
-        }
+        .upload-card { background: var(--card-bg); backdrop-filter: var(--glass-blur); border: 1px solid var(--border); border-radius: 24px; padding: 3rem; text-align: center; cursor: pointer; transition: 0.3s; }
+        .upload-card:hover { border-color: var(--primary); transform: translateY(-4px); }
+        .btn-upload { background: var(--primary); color: white; padding: 0.8rem 2rem; border-radius: 12px; border: none; cursor: pointer; margin-top: 1rem; font-weight: 600; }
 
-        .logo {
-            font-size: 1.5rem;
-            font-weight: 700;
-            background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
-            -webkit-background-clip: text;
-            background-clip: text;
-            -webkit-text-fill-color: transparent;
-            letter-spacing: -0.5px;
-        }
+        #results-section { display: none; margin-top: 3rem; }
+        .comparison-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+        .img-container { background: #000; border-radius: 16px; overflow: hidden; border: 1px solid var(--border); position: relative; }
+        .img-container h3 { position: absolute; top: 12px; left: 12px; background: rgba(0,0,0,0.6); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; text-transform: uppercase; }
+        .img-container img { width: 100%; max-height: 500px; object-fit: contain; border-radius: 4px; display: block; }
 
-        .container {
-            max-width: 1000px;
-            margin: 4rem auto;
-            padding: 0 2rem;
-            flex-grow: 1;
-        }
+        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-top: 2rem; }
+        .metric-card { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); padding: 1.5rem; border-radius: 16px; }
+        .metric-card span { display: block; color: var(--text-dim); font-size: 0.875rem; }
+        .metric-card strong { font-size: 1.5rem; color: #fff; }
 
-        .hero {
-            text-align: center;
-            margin-bottom: 4rem;
-        }
-
-        .hero h1 {
-            font-size: 3.5rem;
-            font-weight: 800;
-            margin-bottom: 1rem;
-            letter-spacing: -1.5px;
-        }
-
-        .hero p {
-            color: var(--text-dim);
-            font-size: 1.125rem;
-            max-width: 600px;
-            margin: 0 auto;
-        }
-
-        .upload-card {
-            background: var(--card-bg);
-            backdrop-filter: var(--glass-blur);
-            border: 1px solid var(--border);
-            border-radius: 24px;
-            padding: 3rem;
-            text-align: center;
-            transition: all 0.3s ease;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-            cursor: pointer;
-            position: relative;
-        }
-
-        .upload-card:hover {
-            border-color: var(--primary);
-            box-shadow: 0 0 20px rgba(99, 102, 241, 0.15);
-            transform: translateY(-4px);
-        }
-
-        .icon-box {
-            width: 80px;
-            height: 80px;
-            background: rgba(99, 102, 241, 0.1);
-            border-radius: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 1.5rem;
-            color: var(--primary);
-            font-size: 2rem;
-        }
-
-        #file-input { display: none; }
-
-        .btn-upload {
-            background: var(--primary);
-            color: white;
-            padding: 0.875rem 2rem;
-            border-radius: 12px;
-            font-weight: 600;
-            border: none;
-            cursor: pointer;
-            transition: 0.2s;
-            margin-top: 1rem;
-        }
-
-        .btn-upload:hover {
-            background: var(--primary-hover);
-            transform: scale(1.02);
-        }
-
-        /* Processing/Results Section */
-        #results-section {
-            display: none;
-            margin-top: 3rem;
-            animation: fadeIn 0.5s ease-out;
-        }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
-        .comparison-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 2rem;
-            margin-bottom: 3rem;
-        }
-
-        .img-container {
-            background: #000;
-            border-radius: 16px;
-            overflow: hidden;
-            border: 1px solid var(--border);
-            position: relative;
-        }
-
-        .img-container h3 {
-            position: absolute;
-            top: 12px;
-            left: 12px;
-            background: rgba(0,0,0,0.6);
-            padding: 4px 10px;
-            border-radius: 6px;
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            font-weight: 600;
-            backdrop-filter: blur(4px);
-        }
-
-        .img-container img {
-            width: 100%;
-            max-height: 500px;
-            object-fit: contain;
-            display: block;
-            border: 1px solid var(--border);
-        }
-
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1.5rem;
-        }
-
-        .metric-card {
-            background: rgba(255, 255, 255, 0.03);
-            border: 1px solid var(--border);
-            padding: 1.5rem;
-            border-radius: 16px;
-            text-align: left;
-        }
-
-        .metric-card span {
-            display: block;
-            color: var(--text-dim);
-            font-size: 0.875rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .metric-card strong {
-            font-size: 1.5rem;
-            color: #fff;
-        }
-
-        /* Loading Spinner */
-        .loader {
-            display: none;
-            width: 48px;
-            height: 48px;
-            border: 4px solid rgba(255, 255, 255, 0.1);
-            border-radius: 50%;
-            border-left-color: var(--primary);
-            animation: spin 1s linear infinite;
-            margin: 2rem auto;
-        }
-
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-
-        footer {
-            padding: 2rem;
-            text-align: center;
-            color: var(--text-dim);
-            font-size: 0.875rem;
-            border-top: 1px solid var(--border);
-        }
-
-        @media (max-width: 768px) {
-            .comparison-grid { grid-template-columns: 1fr; }
-            .hero h1 { font-size: 2.5rem; }
-        }
+        .loader { display: none; width: 48px; height: 48px; border: 4px solid rgba(255, 255, 255, 0.1); border-radius: 50%; border-left-color: var(--primary); animation: spin 1s linear infinite; margin: 2rem auto; }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
-    <div class="blob blob-1"></div>
-    <div class="blob blob-2"></div>
-
-    <header>
-        <div class="logo">NoiseKit</div>
-        <div class="status">AI Engine v1.0</div>
-    </header>
-
+    <header><div class="logo">NoiseKit AI Core</div></header>
     <main class="container">
-        <section class="hero">
-            <h1>Beyond Pixel Noise</h1>
-            <p>Characterize and remove impulsive artifacts from your imagery using advanced computer vision filters.</p>
-        </section>
-
-        <!-- Upload Zone -->
+        <section class="hero"><h1>Adaptive Denoising</h1><p>Intelligent, threshold-aware noise removal engine.</p></section>
         <div class="upload-card" id="drop-zone">
-            <div class="icon-box">
-                <svg width="32" height="32" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
-                </svg>
-            </div>
-            <p id="upload-status">Drop your noisy image here or click to browse</p>
-            <p style="color: var(--text-dim); font-size: 0.8rem; margin-top: 0.5rem;">Supports JPEG, PNG, BMP (Grayscale optimized)</p>
-            <button class="btn-upload">Select File</button>
-            <input type="file" id="file-input" accept="image/*">
+            <p>Select a noisy photo to begin adaptive processing</p>
+            <button class="btn-upload">Upload Image</button>
+            <input type="file" id="file-input" style="display:none;" accept="image/*">
         </div>
-
         <div class="loader" id="loader"></div>
-
-        <!-- Results -->
         <section id="results-section">
             <div class="comparison-grid">
-                <div class="img-container">
-                    <h3>Original</h3>
-                    <img id="preview-original" src="" alt="Noisy">
-                </div>
-                <div class="img-container">
-                    <h3>Denoised</h3>
-                    <img id="preview-denoised" src="" alt="Cleaned">
-                </div>
+                <div class="img-container"><h3>Original</h3><img id="p-orig" src=""></div>
+                <div class="img-container"><h3>Denoised</h3><img id="p-den" src=""></div>
             </div>
-
-            <div class="comparison-grid" style="margin-top: 2rem;">
-                <div class="img-container">
-                    <h3>Original Histogram</h3>
-                    <img id="hist-original" src="" alt="Graph" style="max-height: 300px;">
-                </div>
-                <div class="img-container">
-                    <h3>Denoised Histogram</h3>
-                    <img id="hist-denoised" src="" alt="Graph" style="max-height: 300px;">
-                </div>
-            </div>
-
             <div class="metrics-grid">
-                <div class="metric-card">
-                    <span>Noise Type</span>
-                    <strong id="m-type">-</strong>
-                </div>
-                <div class="metric-card">
-                    <span>Peak SNR</span>
-                    <strong id="m-psnr">0.00 dB</strong>
-                </div>
-                <div class="metric-card">
-                    <span>MSE Error</span>
-                    <strong id="m-mse">0.00</strong>
-                </div>
-                <div class="metric-card">
-                    <span>Confidence</span>
-                    <strong id="m-conf">0%</strong>
-                </div>
+                <div class="metric-card"><span>Detected Noise</span><strong id="m-type">-</strong></div>
+                <div class="metric-card"><span>Confidence</span><strong id="m-conf">-</strong></div>
+                <div class="metric-card"><span>MSE</span><strong id="m-mse">-</strong></div>
+                <div class="metric-card"><span>PSNR</span><strong id="m-psnr">-</strong></div>
             </div>
-            
-            <div style="text-align: center; margin-top: 3rem;">
-                <button class="btn-upload" onclick="location.reload()">Upload New Image</button>
-            </div>
+            <div style="text-align: center; margin-top: 3rem;"><button class="btn-upload" onclick="location.reload()">Upload New</button></div>
         </section>
     </main>
-
-    <footer>
-        &copy; 2026 NoiseKit AI Core. Powered by FastAPI & OpenCV.
-    </footer>
 
     <script>
         const dropZone = document.getElementById('drop-zone');
@@ -342,71 +81,32 @@
         const loader = document.getElementById('loader');
 
         dropZone.onclick = () => fileInput.click();
-
-        fileInput.onchange = (e) => {
-            const file = e.target.files[0];
-            if (file) handleUpload(file);
-        };
-
-        dropZone.ondragover = (e) => {
-            e.preventDefault();
-            dropZone.style.borderColor = 'var(--primary)';
-        };
-
-        dropZone.ondragleave = () => {
-            dropZone.style.borderColor = 'var(--border)';
-        };
-
-        dropZone.ondrop = (e) => {
-            e.preventDefault();
-            const file = e.dataTransfer.files[0];
-            if (file) handleUpload(file);
-        };
+        fileInput.onchange = (e) => { const file = e.target.files[0]; if (file) handleUpload(file); };
 
         async function handleUpload(file) {
-            // Preview original
             const reader = new FileReader();
-            reader.onload = (e) => {
-                document.getElementById('preview-original').src = e.target.result;
-            };
+            reader.onload = (e) => { document.getElementById('p-orig').src = e.target.result; };
             reader.readAsDataURL(file);
 
-            // Hide upload, show loader
             dropZone.style.display = 'none';
             document.querySelector('.hero').style.display = 'none';
             loader.style.display = 'block';
 
-            // Prepare API call
-            const formData = new FormData();
-            formData.append('file', file);
-
+            const formData = new FormData(); formData.append('file', file);
             try {
-                const response = await fetch('/denoise', {
-                    method: 'POST',
-                    body: formData
-                });
-                
+                const response = await fetch('/denoise', { method: 'POST', body: formData });
                 const data = await response.json();
-                
                 if (data.error) throw new Error(data.error);
 
-                // Update UI
-                document.getElementById('preview-denoised').src = data.processed_image;
-                document.getElementById('hist-original').src = data.histogram_original;
-                document.getElementById('hist-denoised').src = data.histogram_denoised;
-                
-                document.getElementById('m-type').innerText = data.detected_noise.replace('_', ' ').toUpperCase();
-                document.getElementById('m-psnr').innerText = data.psnr.toFixed(2) + ' dB';
-                document.getElementById('m-mse').innerText = data.mse.toFixed(2);
+                document.getElementById('p-den').src = data.processed_image;
+                document.getElementById('m-type').innerText = data.detected_noise.toUpperCase();
                 document.getElementById('m-conf').innerText = (data.confidence * 100).toFixed(0) + '%';
+                document.getElementById('m-mse').innerText = data.mse.toFixed(2);
+                document.getElementById('m-psnr').innerText = data.psnr.toFixed(2) + ' dB';
 
                 loader.style.display = 'none';
                 resultsSection.style.display = 'block';
-
-            } catch (error) {
-                alert('Error processing image: ' + error.message);
-                location.reload();
-            }
+            } catch (err) { alert(err.message); location.reload(); }
         }
     </script>
 </body>
