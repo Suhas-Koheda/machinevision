@@ -1,15 +1,13 @@
 import numpy as np
 
-def detect_gaussian(image: np.ndarray) -> float:
+def detect_gaussian(imageValue: np.ndarray) -> float:
     """
-    Placeholder detection function for Gaussian noise.
-    Returns a very low confidence score.
+    Placeholder detection for Gaussian noise.
     """
-    return 0.01
+    return 0.1
 
 def filter_gaussian(imageValue: np.ndarray) -> np.ndarray:
     """
-    Placeholder filtering function for Gaussian noise.
-    Returns the original image without any modifications.
+    Placeholder: Returns the original image.
     """
     return imageValue
