@@ -57,7 +57,7 @@ async def denoise_image(file: UploadFile = File(...)):
         speckle_conf = detect_speckle(image)
         
         # Selection Logic (Strict salt_pepper validation)
-        if sp_result["confidence"] > 0:
+        if sp_result["noise_ratio"] > 0.005:
             detected_noise = "salt_pepper"
             highest_confidence = sp_result["confidence"]
         else:
@@ -69,7 +69,7 @@ async def denoise_image(file: UploadFile = File(...)):
         mse, psnr = -1.0, -1.0 # Default/Fail-safe for placeholders
         
         # 2. Adaptive Filtering Phase
-        if detected_noise == "salt_pepper" and sp_result["noise_ratio"] >= 0.01:
+        if detected_noise == "salt_pepper" and sp_result["noise_ratio"] > 0.005:
             # Fully implemented and adaptive module
             denoised_image = filter_salt_pepper(image, sp_result["noise_ratio"])
             

@@ -14,11 +14,11 @@ def detect_salt_pepper(image: np.ndarray) -> dict:
     
     # Adaptive confidence logic
     # If noise_ratio < 1%, it's likely not impulsive noise
-    if noise_ratio < 0.01:
+    if noise_ratio < 0.005:
         confidence = 0.0
     else:
-        # Scale confidence based on intensity of noise (maxed at 1.0)
-        confidence = min(noise_ratio * 10, 1.0)
+        # Improved sensitivity for low-intensity noise
+        confidence = min(noise_ratio * 20, 1.0)
         
     return {
         "confidence": float(confidence),
