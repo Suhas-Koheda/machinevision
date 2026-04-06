@@ -13,6 +13,7 @@ from salt_pepper.evaluate import calculate_mse, calculate_psnr
 from gaussian.placeholder import detect_gaussian, filter_gaussian
 from speckle.placeholder import detect_speckle, filter_speckle
 from utils.image_utils import decode_image, encode_image_base64
+import cv2
 
 app = FastAPI(title="Noise Characterization & Removal Production Core")
 
@@ -57,7 +58,7 @@ async def denoise_image(file: UploadFile = File(...)):
         speckle_conf = detect_speckle(image)
         
         # Selection Logic (Strict salt_pepper validation)
-        if sp_result["noise_ratio"] > 0.005:
+        if sp_result["noise_ratio"] >= 0.003:
             detected_noise = "salt_pepper"
             highest_confidence = sp_result["confidence"]
         else:
@@ -69,8 +70,8 @@ async def denoise_image(file: UploadFile = File(...)):
         mse, psnr = -1.0, -1.0 # Default/Fail-safe for placeholders
         
         # 2. Adaptive Filtering Phase
-        if detected_noise == "salt_pepper" and sp_result["noise_ratio"] > 0.005:
-            # Fully implemented and adaptive module
+        if detected_noise == "salt_pepper" and sp_result["noise_ratio"] >= 0.005:
+            # Single pass adaptive filtering
             denoised_image = filter_salt_pepper(image, sp_result["noise_ratio"])
             
             # Accurate metrics calculation based on image transformation
@@ -78,7 +79,7 @@ async def denoise_image(file: UploadFile = File(...)):
             psnr = calculate_psnr(mse)
             
         else:
-            # Noise below threshold or non-SP: Return original image with negative metrics
+            # Noise below 0.5% threshold or non-SP: Return original image with negative metrics
             denoised_image = image
             mse = -1.0
             psnr = -1.0
