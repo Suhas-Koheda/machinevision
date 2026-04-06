@@ -56,21 +56,20 @@ async def denoise_image(file: UploadFile = File(...)):
         gauss_conf = detect_gaussian(image)
         speckle_conf = detect_speckle(image)
         
-        # Selection Logic (Pick highest confidence)
-        confidences = {
-            "salt_pepper": sp_result["confidence"],
-            "gaussian": gauss_conf,
-            "speckle": speckle_conf
-        }
-        detected_noise = max(confidences, key=confidences.get)
-        highest_confidence = confidences[detected_noise]
+        # Selection Logic (Strict salt_pepper validation)
+        if sp_result["confidence"] > 0:
+            detected_noise = "salt_pepper"
+            highest_confidence = sp_result["confidence"]
+        else:
+            detected_noise = "none"
+            highest_confidence = 0.0
         
         # Init results
         denoised_image = image
         mse, psnr = -1.0, -1.0 # Default/Fail-safe for placeholders
         
         # 2. Adaptive Filtering Phase
-        if detected_noise == "salt_pepper" and highest_confidence > 0:
+        if detected_noise == "salt_pepper" and sp_result["noise_ratio"] >= 0.01:
             # Fully implemented and adaptive module
             denoised_image = filter_salt_pepper(image, sp_result["noise_ratio"])
             
@@ -79,9 +78,10 @@ async def denoise_image(file: UploadFile = File(...)):
             psnr = calculate_psnr(mse)
             
         else:
-            # Placeholder or Zero-Confidence handling
-            # Return original image, metrics remain -1 as requested.
+            # Noise below threshold or non-SP: Return original image with negative metrics
             denoised_image = image
+            mse = -1.0
+            psnr = -1.0
             
         # 3. Packaging
         result_b64 = encode_image_base64(denoised_image)
