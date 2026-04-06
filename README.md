@@ -38,19 +38,73 @@ We prioritize mathematical accuracy over "perfect scores":
 
 ## 🛠️ SETUP & EXECUTION
 
-1. **Install Requirements**:
-   ```bash
-   pip install -r requirements.txt
-   ```
+Follow these steps to get the production core running on your local machine.
 
-2. **Launch Core**:
-   ```bash
-   python main.py
-   ```
+### 1. Environment Setup
+Create a dedicated virtual environment to keep dependencies isolated and stable.
 
-3. **Access**:
-   - Web UI: `http://localhost:8000`
-   - API Docs: `http://localhost:8000/docs`
+**Windows:**
+```powershell
+# Create the environment
+python -m venv venv
+
+# Activate the environment
+.\venv\Scripts\activate
+```
+
+**macOS / Linux:**
+```bash
+# Create the environment
+python3 -m venv venv
+
+# Activate the environment
+source venv/bin/activate
+```
+
+### 2. Dependency Installation
+Once the environment is active, install the required academic-grade libraries:
+```bash
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+### 3. Launch the Engine
+Start the FastAPI server using the production-ready wrapper:
+```bash
+python main.py
+```
+
+### 4. Access Points
+- **Interactive UI**: [http://localhost:8000](http://localhost:8000)
+- **API Documentation**: [http://localhost:8000/docs](http://localhost:8000/docs)
+- **Health Check**: `GET /` (Serves the frontend)
+
+---
+
+## 📂 PROJECT STRUCTURE
+
+```text
+├── main.py              # Application entry point & FastAPI routing
+├── requirements.txt      # System dependencies
+├── salt_pepper/         # Core logic for Salt & Pepper noise
+│   ├── detect.py        # Intensity-based detection engine
+│   ├── filter.py        # Adaptive median filtering logic
+│   └── evaluate.py      # MSE & PSNR calculation
+├── gaussian/            # Placeholder for Gaussian noise module
+├── speckle/             # Placeholder for Speckle noise module
+├── utils/               # Image processing helper functions
+└── static/              # Frontend Web UI (HTML/CSS/JS)
+```
+
+---
+
+## 🎭 SUPPORTED NOISE MODELS
+
+| Noise Type | Status | Detection | Filtering |
+| :--- | :--- | :--- | :--- |
+| **Salt & Pepper** | ✅ Active | Adaptive Threshold | Multilevel Median |
+| **Gaussian** | 🚧 Roadmap | Basic Analytics | Placeholder |
+| **Speckle** | 🚧 Roadmap | Basic Analytics | Placeholder |
 
 ---
 
