@@ -164,6 +164,14 @@
                         <div class="noise-detail-item"><strong>Laplacian Var:</strong> ${gauss.laplacian_variance.toFixed(1)}</div>
                         <div class="noise-detail-item"><strong>Noise Ratio:</strong> ${(gauss.ratio * 100).toFixed(2)}%</div>
                     `;
+                } else if (data.detected_noise === 'speckle') {
+                    const speckle = data.noise_details.speckle;
+                    detailsHTML += `
+                        <div class="noise-detail-item"><strong>Local Variance:</strong> ${speckle.local_variance.toFixed(1)}</div>
+                        <div class="noise-detail-item"><strong>Speckle Index:</strong> ${speckle.speckle_index.toFixed(3)}</div>
+                        <div class="noise-detail-item"><strong>Coeff. of Variation:</strong> ${speckle.coefficient_of_variation.toFixed(3)}</div>
+                        <div class="noise-detail-item"><strong>Noise Ratio:</strong> ${(speckle.ratio * 100).toFixed(2)}%</div>
+                    `;
                 } else {
                     detailsHTML += `<div class="noise-detail-item" style="grid-column: 1/-1;"><em>No significant noise detected</em></div>`;
                 }
