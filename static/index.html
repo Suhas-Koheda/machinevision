@@ -42,35 +42,70 @@
 
         .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-top: 2rem; }
         .metric-card { background: rgba(255, 255, 255, 0.03); border: 1px solid var(--border); padding: 1.5rem; border-radius: 16px; }
-        .metric-card span { display: block; color: var(--text-dim); font-size: 0.875rem; }
-        .metric-card strong { font-size: 1.5rem; color: #fff; }
-
-        .loader { display: none; width: 48px; height: 48px; border: 4px solid rgba(255, 255, 255, 0.1); border-radius: 50%; border-left-color: var(--primary); animation: spin 1s linear infinite; margin: 2rem auto; }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        .metric-card span { display: block; color: var(--text-dim); font-size: 0.875rem; margin-bottom: 4px; }
+        .metric-card strong { font-size: 1.5rem; color: #fff; display: block; }
+        .metric-card small { display: block; color: var(--text-dim); font-size: 0.75rem; margin-top: 4px; }
+        
+        .detection-panel { background: rgba(59, 130, 246, 0.1); border: 1px solid var(--primary); border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; }
+        .detection-panel h3 { color: var(--primary); margin-bottom: 1rem; }
+        .noise-detail { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
+        .noise-detail-item { background: rgba(255,255,255,0.05); padding: 0.8rem; border-radius: 8px; }
+        .noise-detail-item strong { color: var(--primary); }
     </style>
 </head>
 <body>
     <header><div class="logo">NoiseKit AI Core</div></header>
     <main class="container">
-        <section class="hero"><h1>Adaptive Denoising</h1><p>Intelligent, threshold-aware noise removal engine.</p></section>
+        <section class="hero">
+            <h1>Adaptive Denoising Framework</h1>
+            <p>Automatic noise detection & intelligent restoration using classical filtering</p>
+        </section>
+        
         <div class="upload-card" id="drop-zone">
-            <p>Select a noisy photo to begin adaptive processing</p>
+            <p>📁 Upload a noisy image for automatic analysis</p>
             <button class="btn-upload">Upload Image</button>
             <input type="file" id="file-input" style="display:none;" accept="image/*">
         </div>
         <div class="loader" id="loader"></div>
         <section id="results-section">
+            <div class="detection-panel">
+                <h3>🔍 Detection Results</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                    <div>
+                        <strong>Detected Noise Type:</strong><br>
+                        <span style="font-size: 1.3rem; color: var(--primary);" id="m-type">-</span>
+                    </div>
+                    <div>
+                        <strong>Detection Confidence:</strong><br>
+                        <span style="font-size: 1.3rem; color: var(--accent);" id="m-conf">-</span>
+                    </div>
+                </div>
+                <div id="m-details" style="margin-top: 1rem;"></div>
+            </div>
+            
             <div class="comparison-grid">
                 <div class="img-container"><h3>Original</h3><img id="p-orig" src=""></div>
                 <div class="img-container"><h3>Denoised</h3><img id="p-den" src=""></div>
             </div>
+            
             <div class="metrics-grid">
-                <div class="metric-card"><span>Detected Noise</span><strong id="m-type">-</strong></div>
-                <div class="metric-card"><span>Confidence</span><strong id="m-conf">-</strong></div>
-                <div class="metric-card"><span>MSE</span><strong id="m-mse">-</strong></div>
-                <div class="metric-card"><span>PSNR</span><strong id="m-psnr">-</strong></div>
+                <div class="metric-card">
+                    <span>Filter Applied</span>
+                    <strong id="m-filter">-</strong>
+                </div>
+                <div class="metric-card">
+                    <span>MSE</span>
+                    <strong id="m-mse">-</strong>
+                    <small>Lower is better</small>
+                </div>
+                <div class="metric-card">
+                    <span>PSNR</span>
+                    <strong id="m-psnr">-</strong>
+                    <small>>30 dB = acceptable</small>
+                </div>
             </div>
-            <div style="text-align: center; margin-top: 3rem;"><button class="btn-upload" onclick="location.reload()">Upload New</button></div>
+            
+            <div style="text-align: center; margin-top: 3rem;"><button class="btn-upload" onclick="location.reload()">Upload New Image</button></div>
         </section>
     </main>
 
@@ -84,29 +119,64 @@
         fileInput.onchange = (e) => { const file = e.target.files[0]; if (file) handleUpload(file); };
 
         async function handleUpload(file) {
+            // Display original image
             const reader = new FileReader();
             reader.onload = (e) => { document.getElementById('p-orig').src = e.target.result; };
             reader.readAsDataURL(file);
 
+            // Hide upload section, show loader
             dropZone.style.display = 'none';
             document.querySelector('.hero').style.display = 'none';
             loader.style.display = 'block';
 
-            const formData = new FormData(); formData.append('file', file);
+            const formData = new FormData();
+            formData.append('file', file);
+            
             try {
+                // Single endpoint - fully automatic
                 const response = await fetch('/denoise', { method: 'POST', body: formData });
                 const data = await response.json();
                 if (data.error) throw new Error(data.error);
 
+                // Display results
                 document.getElementById('p-den').src = data.processed_image;
                 document.getElementById('m-type').innerText = data.detected_noise.toUpperCase();
-                document.getElementById('m-conf').innerText = (data.confidence * 100).toFixed(0) + '%';
-                document.getElementById('m-mse').innerText = data.mse.toFixed(2);
-                document.getElementById('m-psnr').innerText = data.psnr.toFixed(2) + ' dB';
+                document.getElementById('m-conf').innerText = (data.confidence * 100).toFixed(1) + '%';
+                document.getElementById('m-filter').innerText = data.filter_applied.replace(/_/g, ' ').toUpperCase();
+                document.getElementById('m-mse').innerText = data.mse >= 0 ? data.mse.toFixed(2) : 'N/A';
+                document.getElementById('m-psnr').innerText = data.psnr >= 0 ? data.psnr.toFixed(2) + ' dB' : 'N/A';
+                
+                // Display detailed noise analysis
+                const detailsDiv = document.getElementById('m-details');
+                let detailsHTML = '<div class="noise-detail">';
+                
+                if (data.detected_noise === 'salt_pepper') {
+                    const sp = data.noise_details.salt_pepper;
+                    detailsHTML += `
+                        <div class="noise-detail-item"><strong>Salt Pixels:</strong> ${sp.salt_pixels.toLocaleString()}</div>
+                        <div class="noise-detail-item"><strong>Pepper Pixels:</strong> ${sp.pepper_pixels.toLocaleString()}</div>
+                        <div class="noise-detail-item"><strong>Noise Ratio:</strong> ${(sp.ratio * 100).toFixed(2)}%</div>
+                    `;
+                } else if (data.detected_noise === 'gaussian') {
+                    const gauss = data.noise_details.gaussian;
+                    detailsHTML += `
+                        <div class="noise-detail-item"><strong>Variance:</strong> ${gauss.variance.toFixed(1)}</div>
+                        <div class="noise-detail-item"><strong>Laplacian Var:</strong> ${gauss.laplacian_variance.toFixed(1)}</div>
+                        <div class="noise-detail-item"><strong>Noise Ratio:</strong> ${(gauss.ratio * 100).toFixed(2)}%</div>
+                    `;
+                } else {
+                    detailsHTML += `<div class="noise-detail-item" style="grid-column: 1/-1;"><em>No significant noise detected</em></div>`;
+                }
+                
+                detailsHTML += '</div>';
+                detailsDiv.innerHTML = detailsHTML;
 
                 loader.style.display = 'none';
                 resultsSection.style.display = 'block';
-            } catch (err) { alert(err.message); location.reload(); }
+            } catch (err) { 
+                alert('Error: ' + err.message); 
+                location.reload(); 
+            }
         }
     </script>
 </body>
