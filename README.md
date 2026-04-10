@@ -1,128 +1,61 @@
-# 🌌 Noise Characterization & Removal Production Hub
+# 🎬 Video Understanding Web Application
 
-A lightweight, robust, and academic-grade system for image noise analysis and restoration. This toolkit features an adaptive filtering core that dynamically scales processing power based on detected noise intensity.
+An intelligent, state-of-the-art system that extracts meaningful information from video, images, or live streams without redundancy.
 
----
+## 🚀 Features
 
-## 🚀 ADAPTIVE FILTERING STRATEGY
+- **Intelligent Frame Difference detection**: Processes ONLY significant visual changes (Mean Pixel Difference).
+- **Custom Denoising Layer**: Modular hook for image cleanup.
+- **YOLOv8 Object Detection**: Detects all objects, flags "person" (Teacher Detection).
+- **PaddleOCR Engine**: Extracts structured text with high accuracy.
+- **Semantic Text Deduplication**: Uses Sentence Transformers and Cosine Similarity (threshold > 0.9) to skip repeated text.
+- **Local MongoDB Storage**: Persists only unique, meaningful entries.
+- **Modern React Frontend**: Live stream support and timeline-based results.
 
-Unlike traditional static filters, this project implements a **load-balanced filtering approach** for Salt & Pepper noise:
+## 🏗️ Tech Stack
 
-| Noise Ratio | Detected Level | Kernel Size | Strength |
-| :--- | :--- | :--- | :--- |
-| < 2% | Minimal | 3x3 | Sensitive |
-| 2% - 5% | Moderate | 5x5 | Balanced |
-| > 5% | Heavy | 7x7 | Maximum |
+- **Backend**: FastAPI, OpenCV, YOLOv8, PaddleOCR, Motor (MongoDB), sentence-transformers.
+- **Frontend**: React (Vite), Modern CSS, WebSockets.
+- **Database**: MongoDB (Local).
 
-**Fail-safe**: If Salt & Pepper noise is detected with less than **1%** ratio, the system treats it as "clean" and bypasses filtering to preserve detail.
+## 🛠️ Installation & Setup
 
----
-
-## 🔬 NOISE DETECTION LOGIC
-
-The detection engine uses **threshold-based intensity analysis** rather than strict equality (which often fails on digital images due to compression):
-- **Pepper**: Identified if pixel value ≤ 10
-- **Salt**: Identified if pixel value ≥ 245
-- **Confidence**: Dynamically scaled based on the ratio of detected noisy pixels.
-
----
-
-## 🧬 HONEST CORE METRICS
-
-We prioritize mathematical accuracy over "perfect scores":
-- **MSE (Float Precision)**: Calculated using NumPy over the full image intensity range.
-- **PSNR (Capped)**: Standard PSNR returns misleading `100` or `Infinity` on perfect images; our system caps PSNR at **50.0 dB** to reflect a realistic threshold of human perception.
-- **Placeholder Fail-safe**: If a placeholder module (Gaussian/Speckle) is chosen, the engine returns **-1.0** for all metrics to signal that no valid processing occurred.
-
----
-
-## 🛠️ SETUP & EXECUTION
-
-Follow these steps to get the production core running on your local machine.
-
-### 1. Environment Setup
-Create a dedicated virtual environment to keep dependencies isolated and stable.
-
-**Windows:**
-```powershell
-# Create the environment
-python -m venv venv
-
-# Activate the environment
-.\venv\Scripts\activate
-```
-
-**macOS / Linux:**
+### 1. Backend Setup
 ```bash
-# Create the environment
-python3 -m venv venv
+# Activate your environment
+source ~/ML/.venv/bin/activate
 
-# Activate the environment
-source venv/bin/activate
+# Install dependencies
+pip install -r backend/requirements.txt
 ```
 
-### 2. Dependency Installation
-Once the environment is active, install the required academic-grade libraries:
+### 2. Frontend Setup
 ```bash
-pip install --upgrade pip
-pip install -r requirements.txt
+cd frontend
+npm install
 ```
 
-### 3. Launch the Engine
-Start the FastAPI server using the production-ready wrapper:
+### 3. Run the Application
+Start the backend:
 ```bash
-python main.py
+python backend/main.py
 ```
 
-### 4. Access Points
-- **Interactive UI**: [http://localhost:8000](http://localhost:8000)
-- **API Documentation**: [http://localhost:8000/docs](http://localhost:8000/docs)
-- **Health Check**: `GET /` (Serves the frontend)
-
----
-
-## 📂 PROJECT STRUCTURE
-
-```text
-├── main.py              # Application entry point & FastAPI routing
-├── requirements.txt      # System dependencies
-├── salt_pepper/         # Core logic for Salt & Pepper noise
-│   ├── detect.py        # Intensity-based detection engine
-│   ├── filter.py        # Adaptive median filtering logic
-│   └── evaluate.py      # MSE & PSNR calculation
-├── gaussian/            # Placeholder for Gaussian noise module
-├── speckle/             # Placeholder for Speckle noise module
-├── utils/               # Image processing helper functions
-└── static/              # Frontend Web UI (HTML/CSS/JS)
+Start the frontend:
+```bash
+cd frontend
+npm run dev
 ```
 
----
-
-## 🎭 SUPPORTED NOISE MODELS
-
-| Noise Type | Status | Detection | Filtering |
-| :--- | :--- | :--- | :--- |
-| **Salt & Pepper** | ✅ Active | Adaptive Threshold | Multilevel Median |
-| **Gaussian** | 🚧 Roadmap | Basic Analytics | Placeholder |
-| **Speckle** | 🚧 Roadmap | Basic Analytics | Placeholder |
-
----
-
-## 📡 API REFERENCE - `POST /denoise`
-
-**Input Type**: `multipart/form-data` with `file` field.
-
-**Sample JSON Result**:
+## 📊 Database Entry Structure
 ```json
 {
-  "detected_noise": "salt_pepper",
-  "confidence": 0.85,
-  "mse": 14.82,
-  "psnr": 36.42,
-  "processed_image": "data:image/png;base64,..."
+  "timestamp": "ISO-8601",
+  "teacher_detected": true/false,
+  "detected_objects": [
+    { "label": "person", "confidence": 0.95, "bbox": [x1, y1, x2, y2] }
+  ],
+  "extracted_text": "Cleaned OCR text content",
+  "is_new_content": true
 }
 ```
-
----
-
-*Academic-grade implementation by Antigravity.*
