@@ -155,33 +155,29 @@ async def websocket_endpoint(websocket: WebSocket):
                 detections, teacher_detected = yolo.detect(processed_frame)
                 ocr_items, full_text = ocr.extract_text(processed_frame)
                 
-                # Always send the annotated frame for the live view if significant change
+                # Always send the annotated frame for the live view
                 annotated_frame = yolo.draw_detections(processed_frame, detections)
-                annotated_frame = ocr.draw_text(annotated_frame, full_text)
                 _, buffer = cv2.imencode('.jpg', annotated_frame)
                 img_base64 = base64.b64encode(buffer).decode('utf-8')
                 
-                # Check for uniqueness for DB storage
-                is_unique = text_similarity.is_semantically_different(full_text)
+                unique_labels = [d["label"] for d in detections if d.get("is_new", True)]
                 
                 result_entry = {
                     "timestamp": str(datetime.now().strftime("%H:%M:%S")),
                     "teacher_detected": teacher_detected,
                     "detected_objects": detections,
                     "extracted_text": full_text,
-                    "is_new_content": is_unique,
+                    "is_new_content": True,
                     "session_id": session_id,
                     "video_name": video_name,
-                    "unique_objects": [d["label"] for d in detections if d.get("is_new", True)],
+                    "unique_objects": unique_labels,
                     "image_data": f"data:image/jpeg;base64,{img_base64}"
                 }
-
-                if is_unique:
-                    print(f"✨ WebSocket: Found unique content. Saving to DB.")
-                    await save_result(result_entry)
-                
-                # Always send to client for live visualization
+                await save_result(result_entry)
                 await websocket.send_json(result_entry)
+                print(f"✨ WebSocket: Sent frame with {len(detections)} objects")
+            else:
+                print(f"⏭️ WebSocket: Content similar, skipping notification.")
     except WebSocketDisconnect:
         print("Client disconnected")
 

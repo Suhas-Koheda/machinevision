@@ -287,9 +287,9 @@ function App() {
                 {liveFrame ? (
                   <img src={liveFrame.image_data} alt="Processed" />
                 ) : (
-                  <div className="no-image">Waiting...</div>
+                  <div className="no-image">Waiting for first frame...</div>
                 )}
-                <div className="live-label">Processed</div>
+                <div className="live-label">Processed Result</div>
               </div>
               <canvas ref={canvasRef} width={640} height={480} style={{ display: 'none' }} />
             </div>
