@@ -1,36 +1,24 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.responses import JSONResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
-import uvicorn
 import os
+import uvicorn
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from backend.db.database import init_db
+from backend.routes.ws_routes import router as ws_router
 
-# Internal module imports (Follow project/ Project Structure)
-from salt_pepper.detect import detect_salt_pepper
-from salt_pepper.filter import filter_salt_pepper
-from salt_pepper.evaluate import calculate_mse, calculate_psnr
-from gaussian.detect import detect_gaussian
-from gaussian.filter import filter_gaussian
-from gaussian.evaluate import (
-    calculate_mse as calculate_mse_gaussian,
-    calculate_psnr as calculate_psnr_gaussian,
-)
-from speckle.detect import detect_speckle
-from speckle.filter import filter_speckle
-from speckle.evaluate import (
-    calculate_mse as calculate_mse_speckle,
-    calculate_psnr as calculate_psnr_speckle,
-)
-from utils.image_utils import decode_image, encode_image_base64
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup logic
+    init_db()
+    os.makedirs("static/recordings", exist_ok=True)
+    os.makedirs("static/uploads", exist_ok=True)
+    os.makedirs("static/frames", exist_ok=True)
+    yield
+    # Shutdown logic (optional)
 
-app = FastAPI(title="Noise Characterization & Removal Production Core")
+app = FastAPI(title="AI Vision Intelligence Dashboard", lifespan=lifespan)
 
-# Mount Static Files (Serving index.html at root)
-if not os.path.exists("static"):
-    os.makedirs("static")
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# Enable CORS for frontend flexibility
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -39,199 +27,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(ws_router)
 
-def _decode_uploaded_image(image_bytes: bytes):
-    image = decode_image(image_bytes)
-    if image is None:
-        raise HTTPException(
-            status_code=400,
-            detail="Uploaded file is not a valid image or could not be decoded.",
-        )
-    return image
-
-
-@app.get("/")
-async def root():
-    """
-    Serve the main UI.
-    """
-    return FileResponse("static/index.html")
-
-
-@app.post("/denoise/speckle")
-async def denoise_speckle_image(file: UploadFile = File(...), method: str = "lee"):
-    """
-    Dedicated speckle denoising endpoint.
-
-    Query params:
-    - method: "lee" (default) or "frost"
-    """
-    try:
-        method_name = method.lower().strip()
-        if method_name not in {"lee", "frost"}:
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid speckle method. Use 'lee' or 'frost'.",
-            )
-
-        img_bytes = await file.read()
-        image = _decode_uploaded_image(img_bytes)
-
-        speckle_result = detect_speckle(image)
-        noise_ratio = speckle_result["noise_ratio"]
-
-        denoised_image = filter_speckle(image, noise_ratio, method=method_name)
-        mse = calculate_mse_speckle(image, denoised_image)
-        psnr = calculate_psnr_speckle(mse)
-
-        result_b64 = encode_image_base64(denoised_image)
-
-        return {
-            "detected_noise": "speckle",
-            "confidence": float(speckle_result["confidence"]),
-            "noise_details": {
-                "speckle": {
-                    "confidence": float(speckle_result["confidence"]),
-                    "ratio": float(noise_ratio),
-                    "local_variance": float(speckle_result["local_variance"]),
-                    "speckle_index": float(speckle_result["speckle_index"]),
-                    "coefficient_of_variation": float(
-                        speckle_result["coefficient_of_variation"]
-                    ),
-                }
-            },
-            "filter_applied": f"{method_name}_filter",
-            "mse": float(mse),
-            "psnr": float(psnr),
-            "processed_image": f"data:image/png;base64,{result_b64}",
-        }
-
-    except HTTPException as http_exc:
-        raise http_exc
-    except Exception as e:
-        return JSONResponse(
-            status_code=500,
-            content={"error": f"Internal process failure: {str(e)}"},
-        )
-
-
-@app.post("/denoise")
-async def denoise_image(file: UploadFile = File(...)):
-    """
-    AUTOMATED Denoising Endpoint
-
-    Intelligent, fully automatic image denoising framework that:
-    1. DETECTS the type of noise present (Salt & Pepper, Gaussian, Speckle, or None)
-    2. CHOOSES the best filtering technique automatically
-    3. APPLIES optimal parameters based on noise intensity
-    4. EVALUATES quality using MSE and PSNR metrics
-
-    NO manual selection required - the framework decides everything!
-    """
-    try:
-        # Load and decode image
-        img_bytes = await file.read()
-        image = _decode_uploaded_image(img_bytes)
-
-        # ====== DETECTION PHASE ======
-        # Comprehensive noise type detection
-        sp_result = detect_salt_pepper(image)
-        gauss_result = detect_gaussian(image)
-        speckle_result = detect_speckle(image)
-
-        sp_confidence = sp_result["confidence"]
-        sp_noise_ratio = sp_result["noise_ratio"]
-
-        gauss_confidence = gauss_result["confidence"]
-        gauss_noise_ratio = gauss_result["noise_ratio"]
-
-        speckle_confidence = speckle_result["confidence"]
-        speckle_noise_ratio = speckle_result["noise_ratio"]
-
-        # ====== DECISION LOGIC ======
-        # Automatic noise type ranking and selection
-        noise_scores = {
-            "salt_pepper": sp_confidence if sp_noise_ratio >= 0.003 else 0.0,
-            "gaussian": gauss_confidence,
-            "speckle": speckle_confidence if speckle_noise_ratio >= 0.05 else 0.0,
-            "none": 0.0,
-        }
-
-        # Select the noise type with highest confidence
-        detected_noise = max(noise_scores, key=noise_scores.get)
-        highest_confidence = noise_scores[detected_noise]
-
-        # Initialize results
-        denoised_image = image
-        mse, psnr = -1.0, -1.0
-        filter_method = "none"
-
-        # ====== FILTERING PHASE ======
-        # Apply optimal filter based on detected noise type
-        if detected_noise == "salt_pepper" and sp_noise_ratio >= 0.005:
-            # Salt & Pepper noise detected
-            denoised_image = filter_salt_pepper(image, sp_noise_ratio)
-            mse = calculate_mse(image, denoised_image)
-            psnr = calculate_psnr(mse)
-            filter_method = "median_filter"
-
-        elif detected_noise == "gaussian" and gauss_noise_ratio > 0.01:
-            # Gaussian noise detected - use bilateral filter for best edge preservation
-            denoised_image = filter_gaussian(image, gauss_noise_ratio, method="bilateral")
-            mse = calculate_mse_gaussian(image, denoised_image)
-            psnr = calculate_psnr_gaussian(mse)
-            filter_method = "bilateral_filter"
-
-        elif detected_noise == "speckle" and speckle_noise_ratio >= 0.05:
-            # Speckle noise detected - default to Lee filter
-            denoised_image = filter_speckle(image, speckle_noise_ratio, method="lee")
-            mse = calculate_mse_speckle(image, denoised_image)
-            psnr = calculate_psnr_speckle(mse)
-            filter_method = "lee_filter"
-
-        # ====== PACKAGING RESPONSE ======
-        result_b64 = encode_image_base64(denoised_image)
-
-        return {
-            "detected_noise": detected_noise,
-            "confidence": float(highest_confidence),
-            "noise_details": {
-                "salt_pepper": {
-                    "confidence": float(sp_confidence),
-                    "ratio": float(sp_noise_ratio),
-                    "pepper_pixels": int(sp_result["pepper_count"]),
-                    "salt_pixels": int(sp_result["salt_count"]),
-                },
-                "gaussian": {
-                    "confidence": float(gauss_confidence),
-                    "ratio": float(gauss_noise_ratio),
-                    "variance": float(gauss_result["variance"]),
-                    "laplacian_variance": float(gauss_result["laplacian_variance"]),
-                },
-                "speckle": {
-                    "confidence": float(speckle_confidence),
-                    "ratio": float(speckle_noise_ratio),
-                    "local_variance": float(speckle_result["local_variance"]),
-                    "speckle_index": float(speckle_result["speckle_index"]),
-                    "coefficient_of_variation": float(
-                        speckle_result["coefficient_of_variation"]
-                    ),
-                },
-            },
-            "filter_applied": filter_method,
-            "mse": float(mse),
-            "psnr": float(psnr),
-            "processed_image": f"data:image/png;base64,{result_b64}",
-        }
-
-    except HTTPException as http_exc:
-        raise http_exc
-    except Exception as e:
-        return JSONResponse(
-            status_code=500,
-            content={"error": f"Internal process failure: {str(e)}"},
-        )
-
+# Serve the build artifacts
+if os.path.exists("frontend/dist"):
+    app.mount("/", StaticFiles(directory="frontend/dist", html=True), name="frontend")
+else:
+    @app.get("/")
+    async def root():
+        return {"message": "Backend OK. Frontend build not found."}
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
