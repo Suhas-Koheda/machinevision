@@ -1,75 +1,118 @@
 import React, { useEffect, useRef, useState } from 'react'
 
+const Panel = ({ title, children, actions }) => (
+  <div className="card">
+    <div className="card-header">
+      <h3>{title}</h3>
+      {actions}
+    </div>
+    <div className="p-3" style={{ fontSize: '0.85rem' }}>{children}</div>
+  </div>
+)
+
 function App() {
   const videoRef = useRef(null)
   const canvasRef = useRef(null)
   const wsRef = useRef(null)
   const recognitionRef = useRef(null)
   
-  const [processedFrame, setProcessedFrame] = useState(null)
-  const [detections, setDetections] = useState([])
-  const [extractedText, setExtractedText] = useState('')
+  // High-frequency state for video feeds
+  const [processedImg, setProcessedImg] = useState(null)
+  const [diagnosticMaps, setDiagnosticMaps] = useState({ noise: null, flow: null })
+  
+  // Persistent Intelligence State (prevents flickering)
+  const [intel, setIntel] = useState({
+    objects: [],
+    semantic: [],
+    graph: [],
+    text: '',
+    events: [],
+    scores: { motion: 0, noise: 0 }
+  })
+
   const [transcription, setTranscription] = useState('')
   const [isTranscribing, setIsTranscribing] = useState(false)
   const [isConnected, setIsConnected] = useState(false)
   const [isStreaming, setIsStreaming] = useState(false)
   const [isRecording, setIsRecording] = useState(false)
-  const [cameraStatus, setCameraStatus] = useState('OFF')
   
   const [sessions, setSessions] = useState([])
-  const [selectedSessionId, setSelectedSessionId] = useState(null)
+  const [selectedSid, setSelectedSid] = useState(null)
   const [sessionFrames, setSessionFrames] = useState([])
   const [viewingFrame, setViewingFrame] = useState(null)
-  const [speechError, setSpeechError] = useState(null)
 
   useEffect(() => {
     fetchSessions()
     connectWS()
-    return () => {
-      wsRef.current?.close()
-      recognitionRef.current?.stop()
-    }
+    initTranscription()
+    return () => { wsRef.current?.close(); recognitionRef.current?.stop(); }
   }, [])
 
   const connectWS = () => {
     const ws = new WebSocket(`ws://${window.location.hostname}:8000/ws`)
     ws.onopen = () => setIsConnected(true)
     ws.onmessage = (e) => {
-      const data = JSON.parse(e.data)
-      if (data.type === 'recording_saved') return alert(`Saved: ${data.url}`)
-      setProcessedFrame(data.image)
-      setDetections(data.objects)
-      if (data.text) setExtractedText(prev => prev + ' ' + data.text)
+      const msg = JSON.parse(e.data)
+      if (msg.type === 'recording_saved') return alert(`Archive Exported: ${msg.url}`)
+      
+      // Update fast-moving visuals immediately
+      if (msg.processed_img) setProcessedImg(msg.processed_img)
+      if (msg.noise_map || msg.flow_map) {
+        setDiagnosticMaps({ noise: msg.noise_map, flow: msg.flow_map })
+      }
+
+      // Update Intelligence ONLY if there is actual new data (Prevents the "flicker")
+      setIntel(prev => ({
+        objects: msg.objects?.length ? msg.objects : prev.objects,
+        semantic: msg.semantic?.length ? msg.semantic : prev.semantic,
+        graph: msg.graph?.length ? msg.graph : prev.graph,
+        text: msg.text ? msg.text : prev.text,
+        events: msg.events?.length ? [...prev.events, ...msg.events].slice(-50) : prev.events,
+        scores: { 
+            motion: msg.motion_score ?? prev.scores.motion, 
+            noise: msg.noise_score ?? prev.scores.noise 
+        }
+      }))
     }
-    ws.onerror = (e) => console.error('WS Error:', e)
     ws.onclose = () => { setIsConnected(false); setTimeout(connectWS, 2000) }
     wsRef.current = ws
   }
 
   const initTranscription = () => {
     const SpeechSDK = window.SpeechRecognition || window.webkitSpeechRecognition
-    if (!SpeechSDK) { setSpeechError(window.isSecureContext ? 'Not supported' : 'Security Block'); return null; }
-    const recognition = new SpeechSDK()
-    recognition.continuous = true; recognition.interimResults = true; recognition.lang = 'en-US'
-    recognition.onresult = (event) => {
-      let finalTranscript = ''
-      for (let i = event.resultIndex; i < event.results.length; ++i) {
-        if (event.results[i].isFinal) finalTranscript += event.results[i][0].transcript
-      }
-      if (finalTranscript) setTranscription(prev => (prev + ' ' + finalTranscript).slice(-1000))
+    if (!SpeechSDK) {
+        console.warn("Speech recognition not supported");
+        return;
     }
-    recognition.onerror = (e) => setSpeechError(e.error)
-    recognition.onend = () => { if (isTranscribing) try { recognition.start() } catch(e) {} }
-    recognitionRef.current = recognition
-    return recognition
+    const rec = new SpeechSDK()
+    rec.continuous = true; rec.interimResults = true; rec.lang = 'en-US'
+    rec.onresult = (event) => {
+      let final = ''
+      for (let i = event.resultIndex; i < event.results.length; ++i) {
+        if (event.results[i].isFinal) final += event.results[i][0].transcript
+      }
+      if (final) {
+        setTranscription(prev => (prev + ' ' + final).slice(-1000))
+        // Auto-scroll logic could go here
+      }
+    }
+    rec.onerror = (e) => console.error("Speech Rec Error:", e.error)
+    rec.onend = () => { if (isTranscribing) try { rec.start() } catch(e) {} }
+    recognitionRef.current = rec
   }
 
   const toggleTranscription = () => {
-    if (!recognitionRef.current && !initTranscription()) return
-    if (!isTranscribing) {
-      try { recognitionRef.current.start(); setIsTranscribing(true); setSpeechError(null); } catch (e) {}
-    } else {
-      recognitionRef.current.stop(); setIsTranscribing(false);
+    if (isTranscribing) { 
+        recognitionRef.current?.stop(); 
+        setIsTranscribing(false); 
+    } else { 
+        try { 
+            recognitionRef.current?.start(); 
+            setIsTranscribing(true); 
+        } catch(e) { 
+            alert("Mic access required for transcription."); 
+            console.error(e);
+        } 
     }
   }
 
@@ -80,40 +123,36 @@ function App() {
     } catch(e) {}
   }
 
-  const loadSessionFrames = async (sid) => {
-    setSelectedSessionId(sid)
+  const loadSession = async (sid) => {
+    setSelectedSid(sid); setViewingFrame(null);
     const res = await fetch(`http://localhost:8000/api/sessions/${sid}/frames`)
-    setSessionFrames(await res.json())
+    if (res.ok) setSessionFrames(await res.json())
   }
 
-  const startStream = async () => {
-    setCameraStatus('INITIALIZING...')
+  const deleteSession = async (sid) => {
+    if (!confirm('Permanently delete session log?')) return
+    await fetch(`http://localhost:8000/api/sessions/${sid}`, { method: 'DELETE' })
+    fetchSessions()
+    if (selectedSid === sid) setSelectedSid(null)
+  }
+
+  const startFeed = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { width: 640, height: 480, frameRate: { ideal: 15 } }, 
-        audio: true 
-      })
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
       if (videoRef.current) {
         videoRef.current.srcObject = stream
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current.play()
-          setCameraStatus('LIVE')
-          setIsStreaming(true)
-        }
+        videoRef.current.play()
       }
-      setTimeout(toggleTranscription, 500)
-    } catch (err) { 
-      setCameraStatus('ERROR')
-      alert('Camera access denied or device not found.') 
-    }
+      setIsStreaming(true)
+      // Automatically attempt to start transcription if not already active
+      if (!isTranscribing) toggleTranscription()
+    } catch(e) { alert("Signal Acquisition Failed. Check camera/mic permissions."); }
   }
 
-  const stopStream = () => {
+  const stopFeed = () => {
     videoRef.current?.srcObject?.getTracks().forEach(t => t.stop())
-    setIsStreaming(false)
-    setCameraStatus('OFF')
-    setProcessedFrame(null)
-    if (isTranscribing) { recognitionRef.current?.stop(); setIsTranscribing(false); }
+    setIsStreaming(false); setProcessedImg(null);
+    if (isTranscribing) toggleTranscription()
     fetchSessions()
   }
 
@@ -123,135 +162,126 @@ function App() {
       if (wsRef.current?.readyState === 1 && videoRef.current && isStreaming) {
         const ctx = canvasRef.current.getContext('2d')
         ctx.drawImage(videoRef.current, 0, 0, 640, 480)
-        canvasRef.current.toBlob(blob => {
-          if (blob && wsRef.current) wsRef.current.send(blob)
-        }, 'image/jpeg', 0.5)
+        canvasRef.current.toBlob(b => wsRef.current?.send(b), 'image/jpeg', 0.5)
       }
-    }, 500)
+    }, 500) // Lower frequency for stability
     return () => clearInterval(interval)
   }, [isStreaming])
 
   return (
-    <div className="container">
-      <div className="main-content">
-        <h1 className="title">Vision Intelligence Control</h1>
-        
-        <div className="controls-bar">
+    <div className="app-layout">
+      <header className="main-header">
+        <div className="brand">BLACKOUT // INTELLIGENCE ARCHIVE</div>
+        <div className="controls">
           {!isStreaming ? 
-            <button className="btn-primary" onClick={startStream}>▶ START FEED</button> :
-            <button className="btn-danger" onClick={stopStream}>⏹ STOP FEED</button>
+            <button className="btn-primary" onClick={startFeed}>▶ LINK SIGNAL</button> :
+            <button onClick={stopFeed}>⏹ DISCONNECT</button>
           }
-          <button className={`btn-outline ${isRecording ? 'pulse' : ''}`} onClick={() => {
+          <button className={isRecording ? 'pulse' : ''} onClick={() => {
             wsRef.current?.send(JSON.stringify({ type: isRecording ? 'stop_recording' : 'start_recording' }))
             setIsRecording(!isRecording)
-          }} disabled={!isStreaming}>
-            {isRecording ? '🔴 STOP' : '⏺ RECORD'}
+          }}>
+            {isRecording ? 'RECORDING...' : '⏺ RECORD'}
           </button>
-          
-          <button className={`btn-outline ${isTranscribing ? 'active' : ''}`} onClick={toggleTranscription}>
-             🎤 {isTranscribing ? 'MIC ON' : 'MIC OFF'}
+          <button onClick={toggleTranscription}>
+             🎤 {isTranscribing ? 'VOICE ON' : 'VOICE OFF'}
           </button>
-
-          <label className="btn-outline" style={{ cursor: 'pointer' }}>
-            📁 UPLOAD
-            <input type="file" hidden accept="video/*" onChange={async (e) => {
-              const fd = new FormData(); fd.append('file', e.target.files[0])
-              await fetch('http://localhost:8000/api/upload-video', { method: 'POST', body: fd })
-              fetchSessions()
+          <label className="card" style={{padding: '8px 15px', cursor: 'pointer', border: '1px solid #333', fontSize: '0.7rem', fontWeight: 900}}>
+            UPLOAD LOCAL <input type="file" hidden onChange={async (e) => {
+               const fd = new FormData(); fd.append('file', e.target.files[0])
+               await fetch('http://localhost:8000/api/upload-video', { method: 'POST', body: fd })
+               fetchSessions()
             }} />
           </label>
         </div>
+      </header>
 
-        <div className="streams-grid">
-          <div className="card">
-            <div className="card-header">
-              <h3>RAW INPUT</h3>
-              <span style={{fontSize: '0.6rem', color: cameraStatus === 'LIVE' ? '#22c55e' : '#ff4b4b'}}>{cameraStatus}</span>
+      <main className="dashboard-grid">
+        <div className="main-column">
+          <section className="visual-section">
+            <div className="card visual-card">
+              <div className="card-header"><h3>LOCAL SIGNAL</h3></div>
+              <div className="video-container">
+                {viewingFrame ? <img src={`http://localhost:8000${viewingFrame.image_path}`} /> : <video ref={videoRef} autoPlay playsInline muted />}
+              </div>
             </div>
-            <div className="video-container">
-              {viewingFrame ? (
-                <img src={`http://localhost:8000${viewingFrame.image_path}`} alt="" />
-              ) : (
-                <video ref={videoRef} autoPlay playsInline muted style={{width: '100%', height: '100%', objectFit: 'contain'}} />
-              )}
+            <div className="card visual-card">
+              <div className="card-header"><h3>PERCEPTION BRIDGE</h3></div>
+              <div className="video-container">
+                {processedImg ? <img src={processedImg} /> : <div className="placeholder">AWAITING LOCK...</div>}
+              </div>
             </div>
-          </div>
-          <div className="card">
-            <div className="card-header"><h3>AI PROCESSING</h3></div>
-            <div className="video-container">
-              {viewingFrame ? (
-                <div style={{ padding: '1rem' }}>
-                  <h3>Results:</h3>
-                  <div className="detection-list">
-                    {viewingFrame.objects.map((o,i) => <span key={i} className="detection-badge">{o.label}</span>)}
-                  </div>
-                  <h3>Text:</h3>
-                  <p className="text-output">{viewingFrame.text}</p>
+          </section>
+
+          <section className="analytics-grid">
+            <Panel title="OBJECT REGISTRY">
+              {intel.objects.map((o,i) => <div key={i} className="list-item"><span className="badge">ID:{o.track_id}</span> {o.label}</div>)}
+              {!intel.objects.length && <div style={{color: '#333'}}>No entities detected.</div>}
+            </Panel>
+            <Panel title="SEMANTIC FLOW">
+              {intel.semantic.map((s,i) => <div key={i} className="list-item"><span className="badge">ID:{s.track_id}</span> {s.semantic}</div>)}
+              {!intel.semantic.length && <div style={{color: '#333'}}>Analyzing scene...</div>}
+            </Panel>
+            <Panel title="RELATION MAPPING">
+              {intel.graph.map((g,i) => <div key={i} className="list-item">{g.subject} ➔ {g.predicate} ➔ {g.object}</div>)}
+              {!intel.graph.length && <div style={{color: '#333'}}>Building graph...</div>}
+            </Panel>
+            <Panel title="DIAGNOSTIC TELEMETRY">
+               <div className="diagnostic-container">
+                <div className="diagnostic-map">
+                  {diagnosticMaps.noise && <img src={diagnosticMaps.noise} />}
+                  <span className="map-label">NOISE: {intel.scores.noise}</span>
                 </div>
-              ) : (
-                processedFrame ? <img src={processedFrame} alt="" /> : <div style={{height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#444'}}>Awaiting frames...</div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="card results-panel">
-          <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem'}}>
-            <div>
-              <h2>Integrated Object Feed</h2>
-              <div className="detection-list" style={{marginBottom: '0.5rem'}}>
-                {detections.slice(-10).map((d,i) => <span key={i} className="detection-badge">{d.label}</span>)}
-              </div>
-              <div className="text-output">{extractedText || 'Pending analysis...'}</div>
-            </div>
-            <div>
-              <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                <h2>Voice Command Log</h2>
-                {speechError && <span style={{fontSize: '0.5rem', color: '#ff4b4b'}}>{speechError}</span>}
-              </div>
-              <div className="text-output" style={{color: '#e879f9', borderLeftColor: '#c026d3'}}>
-                {transcription || (isTranscribing ? 'Listening...' : 'Enable MIC or START FEED')}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="sidebar">
-        <div className="card history-panel">
-          <div className="card-header"><h3>SESSIONS</h3></div>
-          <div style={{ overflowY: 'auto' }}>
-            {sessions.map(s => (
-              <div key={s.id} className={`history-item ${selectedSessionId === s.id ? 'active' : ''}`} onClick={() => loadSessionFrames(s.id)}>
-                <div style={{display: 'flex', justifyContent: 'space-between'}}>
-                  <strong>{s.id.split('_')[0].toUpperCase()}</strong>
-                  <button onClick={async (e) => { e.stopPropagation(); await fetch(`http://localhost:8000/api/sessions/${s.id}`, { method: 'DELETE' }); fetchSessions(); }} style={{background: 'none', color: '#ff4b4b', fontSize: '0.5rem'}}>DEL</button>
+                <div className="diagnostic-map">
+                  {diagnosticMaps.flow && <img src={diagnosticMaps.flow} />}
+                  <span className="map-label">MOTION: {intel.scores.motion}</span>
                 </div>
-                <span>{s.start.split('T')[1].slice(0,5)} | {s.count} frames</span>
               </div>
-            ))}
-          </div>
+            </Panel>
+          </section>
+
+          <section className="analytics-grid">
+            <Panel title="OCR LOG">
+              <div className="text-box">{intel.text || "NO TEXT DETECTED."}</div>
+            </Panel>
+            <Panel title="VOICE TRANSCRIPTION">
+              <div className="text-box" style={{color: '#aaa', fontWeight: 500}}>{transcription || (isTranscribing ? "LISTENING..." : "VOICE CONTROL MUTE.")}</div>
+            </Panel>
+            <Panel title="EVENT HISTORY" style={{gridColumn: 'span 2'}}>
+              <div className="event-box">
+                {intel.events.slice(-10).map((e,i) => <div key={i} className="event-item"><strong>{e.type}</strong> // {e.msg}</div>)}
+                {!intel.events.length && <div style={{color: '#333'}}>Awaiting signal events...</div>}
+              </div>
+            </Panel>
+          </section>
         </div>
 
-        {selectedSessionId && (
-          <div className="card history-panel" style={{marginTop: '1rem'}}>
-            <div className="card-header"><h3>FRAME LOG</h3></div>
-            <div className="frame-grid">
-              {sessionFrames.map(f => (
-                <div key={f.id} className="frame-thumb" onClick={() => setViewingFrame(f)}>
-                  <img src={`http://localhost:8000${f.image_path}`} />
+        <aside className="sidebar">
+          <div className="card" style={{height: '100%'}}>
+            <div className="card-header"><h3>SESSION LIBRARY</h3></div>
+            <div className="sidebar-content">
+              {sessions.map(s => (
+                <div key={s.id} className={`session-item ${selectedSid === s.id ? 'active' : ''}`} onClick={() => loadSession(s.id)}>
+                   <strong style={{color: '#fff'}}>{s.id.toUpperCase()}</strong>
+                   <span style={{display: 'block', fontSize: '0.6rem', color: '#666'}}>{s.count} ITEMS // {s.start.split('T')[1].slice(0,8)}</span>
+                   <button onClick={(e) => { e.stopPropagation(); deleteSession(s.id); }} style={{position: 'absolute', top: 10, right: 10, padding: '2px 8px', fontSize: '0.5rem', borderColor: '#444'}}>DEL</button>
                 </div>
               ))}
+              {selectedSid && (
+                <div className="frame-grid-mini">
+                   {sessionFrames.map(f => (
+                     <div key={f.id} className="frame-thumb">
+                        <img src={`http://localhost:8000${f.image_path}`} onClick={() => setViewingFrame(f)} />
+                     </div>
+                   ))}
+                </div>
+              )}
             </div>
           </div>
-        )}
-      </div>
+        </aside>
+      </main>
 
       <canvas ref={canvasRef} width="640" height="480" style={{ display: 'none' }} />
-      <div className="status-indicator">
-        <div className={`dot ${isConnected ? 'connected' : ''}`}></div>
-        <span>{isConnected ? 'BACKEND ONLINE' : 'DISCONNECTED'}</span>
-      </div>
     </div>
   )
 }

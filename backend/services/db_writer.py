@@ -1,6 +1,3 @@
-"""
-Non-blocking DB writer with frame persistence.
-"""
 import asyncio
 import datetime
 import json
@@ -10,118 +7,77 @@ import cv2
 
 logger = logging.getLogger(__name__)
 
-def _sync_insert(objects: list[dict], text: str, frame_index: int, session_id: str, frame_img=None):
+def _sync_insert_v2(data: dict, frame_img=None):
     from backend.db.database import SessionLocal
     from backend.models.detection import Detection
 
-    if not objects and not text:
-        return
-
-    avg_conf = (
-        sum(o.get("confidence", 0) for o in objects) / len(objects) if objects else 0.0
-    )
-
-    image_path = None
+    img_path = None
     if frame_img is not None:
-        save_dir = f"static/frames/{session_id}"
+        sid = data.get("session_id", "unknown")
+        fid = data.get("frame_index", 0)
+        save_dir = f"static/frames/{sid}"
         os.makedirs(save_dir, exist_ok=True)
-        filename = f"frame_{frame_index}_{datetime.datetime.now().timestamp()}.jpg"
-        image_path = f"/{save_dir}/{filename}"
+        filename = f"f_{fid}_{datetime.datetime.now().timestamp()}.jpg"
+        img_path = f"/{save_dir}/{filename}"
         cv2.imwrite(os.path.join(save_dir, filename), frame_img)
 
     db = SessionLocal()
     try:
         record = Detection(
-            session_id=session_id,
-            timestamp=datetime.datetime.utcnow(),
-            objects_json=json.dumps(objects),
-            text_extracted=text,
-            image_path=image_path,
-            confidence_avg=round(avg_conf, 3),
-            frame_index=frame_index,
+            session_id=data["session_id"],
+            frame_index=data["frame_index"],
+            objects_data=json.dumps(data.get("objects", [])),
+            motion_score=data.get("motion_score", 0.0),
+            noise_score=data.get("noise_score", 0.0),
+            semantic_data=json.dumps(data.get("semantic", [])),
+            graph_data=json.dumps(data.get("graph", [])),
+            ocr_text=data.get("text", ""),
+            events_data=json.dumps(data.get("events", [])),
+            image_path=img_path
         )
         db.add(record)
         db.commit()
     except Exception as exc:
         db.rollback()
-        logger.error("DB insert failed: %s", exc)
+        logger.error("DB V2 insert failed: %s", exc)
     finally:
-        db.close()
+         db.close()
 
-async def save_detection(objects: list[dict], text: str, frame_index: int, session_id: str, frame_img=None):
-    await asyncio.to_thread(_sync_insert, objects, text, frame_index, session_id, frame_img)
+async def save_detection_v2(data: dict, frame_img=None):
+    await asyncio.to_thread(_sync_insert_v2, data, frame_img)
 
 def _sync_get_sessions():
     from backend.db.database import SessionLocal
     from backend.models.detection import Detection
     from sqlalchemy import func
-    
     db = SessionLocal()
     try:
-        results = db.query(
+        res = db.query(
             Detection.session_id, 
-            func.min(Detection.timestamp).label('start'),
-            func.count(Detection.id).label('frame_count')
-        ).group_by(Detection.session_id).order_by(func.min(Detection.timestamp).desc()).all()
-        
-        return [{"id": r[0], "start": r[1].isoformat(), "count": r[2]} for r in results]
+            func.min(Detection.timestamp), 
+            func.count(Detection.id)
+        ).group_by(Detection.session_id).order_by(Detection.timestamp.desc()).all()
+        return [{"id": r[0], "start": r[1].isoformat(), "count": r[2]} for r in res]
     finally:
         db.close()
 
-async def get_sessions():
-    return await asyncio.to_thread(_sync_get_sessions)
-
-def _sync_get_detections(session_id=None, limit=50):
-    from backend.db.database import SessionLocal
-    from backend.models.detection import Detection
-
-    db = SessionLocal()
-    try:
-        query = db.query(Detection)
-        if session_id:
-            query = query.filter(Detection.session_id == session_id)
-        rows = query.order_by(Detection.timestamp.desc()).limit(limit).all()
-        return [
-            {
-                "id": r.id,
-                "session_id": r.session_id,
-                "timestamp": r.timestamp.isoformat(),
-                "objects": json.loads(r.objects_json or "[]"),
-                "text": r.text_extracted,
-                "image_path": r.image_path,
-                "confidence_avg": r.confidence_avg,
-                "frame_index": r.frame_index,
-            }
-            for r in rows
-        ]
-    finally:
-        db.close()
-
-async def get_detections(session_id=None, limit=50):
-    return await asyncio.to_thread(_sync_get_detections, session_id, limit)
-
-def _sync_delete_frame(frame_id):
+def _sync_get_detections(session_id: str):
     from backend.db.database import SessionLocal
     from backend.models.detection import Detection
     db = SessionLocal()
     try:
-        item = db.query(Detection).filter(Detection.id == frame_id).first()
-        if item:
-            if item.image_path:
-                full_path = item.image_path.lstrip("/")
-                if os.path.exists(full_path):
-                    os.remove(full_path)
-            db.delete(item)
-            db.commit()
-            return True
-        return False
+        res = db.query(Detection).filter(Detection.session_id == session_id).order_by(Detection.frame_index.asc()).all()
+        return [{
+            "id": r.id, 
+            "frame_index": r.frame_index,
+            "objects": json.loads(r.objects_data),
+            "text": r.ocr_text,
+            "image_path": r.image_path
+        } for r in res]
     finally:
         db.close()
 
-async def delete_frame(frame_id):
-    return await asyncio.to_thread(_sync_delete_frame, frame_id)
-
-def _sync_delete_session(session_id):
+async def delete_session(session_id: str):
     from backend.db.database import SessionLocal
     from backend.models.detection import Detection
     import shutil
@@ -129,13 +85,23 @@ def _sync_delete_session(session_id):
     try:
         db.query(Detection).filter(Detection.session_id == session_id).delete()
         db.commit()
-        # Clean folder
-        folder = f"static/frames/{session_id}"
-        if os.path.exists(folder):
-            shutil.rmtree(folder)
-        return True
+        path = f"static/frames/{session_id}"
+        if os.path.exists(path): shutil.rmtree(path)
+        return {"status": "deleted"}
     finally:
         db.close()
 
-async def delete_session(session_id):
-    return await asyncio.to_thread(_sync_delete_session, session_id)
+async def delete_frame(frame_id: int):
+    from backend.db.database import SessionLocal
+    from backend.models.detection import Detection
+    db = SessionLocal()
+    try:
+        f = db.query(Detection).filter(Detection.id == frame_id).first()
+        if f:
+            if f.image_path and os.path.exists(f.image_path.lstrip('/')): 
+                os.remove(f.image_path.lstrip('/'))
+            db.delete(f)
+            db.commit()
+        return {"status": "deleted"}
+    finally:
+        db.close()

@@ -29,9 +29,14 @@ app.add_middleware(
 
 app.include_router(ws_router)
 
+# Serve media files
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 # Serve the build artifacts
 if os.path.exists("frontend/dist"):
+
     app.mount("/", StaticFiles(directory="frontend/dist", html=True), name="frontend")
+
 else:
     @app.get("/")
     async def root():

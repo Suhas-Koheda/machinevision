@@ -1,20 +1,23 @@
-"""
-ORM model for storing vision detections.
-"""
 import datetime
-from sqlalchemy import Column, Integer, String, Float, Text, DateTime
+import json
+from sqlalchemy import Column, Integer, String, DateTime, Text, Float
 from backend.db.database import Base
 
-
 class Detection(Base):
-    __tablename__ = "detections"
+    __tablename__ = "detections_v2"
 
     id = Column(Integer, primary_key=True, index=True)
-    session_id = Column(String, index=True)         # Grouping key (UUID or timestamp)
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
-    objects_json = Column(Text, default="[]")       # JSON list of detected objects
-    text_extracted = Column(Text, default="")        # Cleaned OCR text
-    image_path = Column(Text, nullable=True)        # Path to the saved frame image
-    confidence_avg = Column(Float, default=0.0)      # Average YOLO confidence
-    frame_index = Column(Integer, default=0)         # Frame sequence number
-
+    session_id = Column(String, index=True)
+    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    frame_index = Column(Integer)
+    
+    # Store complex JSON data
+    objects_data = Column(Text)       # Full track/det list
+    motion_score = Column(Float)
+    noise_score = Column(Float)
+    semantic_data = Column(Text)      # CLIP output
+    graph_data = Column(Text)         # Scene graph
+    ocr_text = Column(Text)
+    events_data = Column(Text)
+    
+    image_path = Column(String)
