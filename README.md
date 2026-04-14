@@ -1,128 +1,122 @@
-# 🌌 Noise Characterization & Removal Production Hub
+# 🌌 BLACKOUT // AI Vision Intelligence Dashboard
 
-A lightweight, robust, and academic-grade system for image noise analysis and restoration. This toolkit features an adaptive filtering core that dynamically scales processing power based on detected noise intensity.
+A high-performance, real-time video perception engine and intelligence archive designed for autonomous scene understanding, object persistence, and semantic reasoning. 
 
----
-
-## 🚀 ADAPTIVE FILTERING STRATEGY
-
-Unlike traditional static filters, this project implements a **load-balanced filtering approach** for Salt & Pepper noise:
-
-| Noise Ratio | Detected Level | Kernel Size | Strength |
-| :--- | :--- | :--- | :--- |
-| < 2% | Minimal | 3x3 | Sensitive |
-| 2% - 5% | Moderate | 5x5 | Balanced |
-| > 5% | Heavy | 7x7 | Maximum |
-
-**Fail-safe**: If Salt & Pepper noise is detected with less than **1%** ratio, the system treats it as "clean" and bypasses filtering to preserve detail.
+**BLACKOUT** transforms raw video feeds into structured data by integrating state-of-the-art neural networks with a robust processing pipeline.
 
 ---
 
-## 🔬 NOISE DETECTION LOGIC
+## 🛰️ CORE INTELLIGENCE PILLARS
 
-The detection engine uses **threshold-based intensity analysis** rather than strict equality (which often fails on digital images due to compression):
-- **Pepper**: Identified if pixel value ≤ 10
-- **Salt**: Identified if pixel value ≥ 245
-- **Confidence**: Dynamically scaled based on the ratio of detected noisy pixels.
+### 1. Neural Tracking & Persistence
+Powered by **YOLOv8** (You Only Look Once), the system provides real-time multi-object detection and tracking. 
+- **Persistent ID assignment**: Every detected entity is assigned a unique tracking ID that persists across frames.
+- **Trajectory Analysis**: Visual trails mapped for every moving object to visualize historical motion paths.
+
+### 2. Deep Semantic Reasoning
+Integrates **CLIP (Contrastive Language-Image Pre-training)** to perform zero-shot classification and semantic analysis of detected crops.
+- **Environment Context**: Goes beyond simple labels (e.g., "Person") to describe semantics (e.g., "Person sitting on a chair").
+- **Visual-Textual Alignment**: Analyzes the relationship between image fragments and semantic tags.
+
+### 3. OCR Engine (Optical Character Recognition)
+Leverages **PaddleOCR** for high-accuracy text extraction from video frames.
+- **Adaptive Preprocessing**: Automatically applies Otsu thresholding and grayscale conversion to maximize character recognition.
+- **Incremental Extraction**: Intelligent deduplication to prevent redundant text logging across consecutive frames.
+
+### 4. Motion & Diagnostic Telemetry
+Uses **Farneback Dense Optical Flow** to analyze physical movement within the frame.
+- **Motion Scoring**: Quantifies temporal changes to detect anomalies or significant activity.
+- **Noise Analysis**: Real-time Laplacian variance estimation with JET colormap heatmaps to monitor signal quality.
+- **Adaptive Filtering**: Dynamically applies Gaussian or Median blurs based on detected noise intensity to preserve intelligence accuracy.
+
+### 5. Relationship & Event Intelligence
+Constructs a dynamic **Scene Graph** and monitors for logic-based triggers.
+- **Predicate Linking**: Maps relationships between objects (e.g., `Subject ➔ Predicate ➔ Object`) using detection proximities.
+- **Event Engine**: Monitoring for entry/exit events and persistent state changes within the visual field.
+- **Intelligence Logging**: All events are timestamped and archived for historical audit.
 
 ---
 
-## 🧬 HONEST CORE METRICS
+## 🔬 NEURAL MODALITY SPECIFICATIONS
 
-We prioritize mathematical accuracy over "perfect scores":
-- **MSE (Float Precision)**: Calculated using NumPy over the full image intensity range.
-- **PSNR (Capped)**: Standard PSNR returns misleading `100` or `Infinity` on perfect images; our system caps PSNR at **50.0 dB** to reflect a realistic threshold of human perception.
-- **Placeholder Fail-safe**: If a placeholder module (Gaussian/Speckle) is chosen, the engine returns **-1.0** for all metrics to signal that no valid processing occurred.
+| Component | Model / Architecture | Purpose |
+| :--- | :--- | :--- |
+| **Detection** | YOLOv8n (Nano) | High-speed object localization & tracking |
+| **Semantics** | CLIP Vit-Base-Patch32 | Zero-shot visual-semantic understanding |
+| **Text Vision** | PaddleOCR (Angle-Cls) | Real-time text extraction & rectification |
+| **Motion** | Farneback Dense Flow | Physics-based movement telemetry |
 
 ---
 
-## 🛠️ SETUP & EXECUTION
+## 🎭 OPERATIONAL FEATURES
 
-Follow these steps to get the production core running on your local machine.
+| Feature | Description |
+| :--- | :--- |
+| **Real-time Feed** | 20fps low-latency video streaming via binary WebSockets. |
+| **Video Archival** | Backend-side recording of processed streams into high-compression containers. |
+| **Voice Transcription** | Browser-integrated Speech-to-Text for logging verbal observations alongside visual intelligence. |
+| **Intelligence Archive** | SQL-backed persistence for sessions, keyframes, and metadata. |
+| **Local Uploads** | Batch process pre-recorded video files through the intelligence pipeline. |
 
-### 1. Environment Setup
-Create a dedicated virtual environment to keep dependencies isolated and stable.
+---
 
-**Windows:**
-```powershell
-# Create the environment
-python -m venv venv
+## 🛠️ SETUP & DEPLOYMENT
 
-# Activate the environment
-.\venv\Scripts\activate
-```
+### Prerequisites
+- **Python 3.10+** (Recommended)
+- **Node.js 18+** (For frontend development)
+- **GPU (Optional)**: CUDA-capable GPU for accelerated YOLO and CLIP processing.
 
-**macOS / Linux:**
+### 1. Clone & Environment
 ```bash
-# Create the environment
+git clone https://github.com/suhas-koheda/machinevision.git
+cd machinevision
 python3 -m venv venv
-
-# Activate the environment
-source venv/bin/activate
+source venv/bin/activate  # Windows: .\venv\Scripts\activate
 ```
 
-### 2. Dependency Installation
-Once the environment is active, install the required academic-grade libraries:
+### 2. Install Core Dependencies
+The system requires several heavy-weight ML libraries:
 ```bash
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### 3. Launch the Engine
-Start the FastAPI server using the production-ready wrapper:
+### 3. Build/Run Frontend
+```bash
+cd frontend
+npm install
+npm run build
+cd ..
+```
+
+### 4. Launch the Intelligence Hub
 ```bash
 python main.py
 ```
-
-### 4. Access Points
-- **Interactive UI**: [http://localhost:8000](http://localhost:8000)
-- **API Documentation**: [http://localhost:8000/docs](http://localhost:8000/docs)
-- **Health Check**: `GET /` (Serves the frontend)
+Access the dashboard at **[http://localhost:8000](http://localhost:8000)**.
 
 ---
 
-## 📂 PROJECT STRUCTURE
+## 📂 ARCHITECTURAL OVERVIEW
 
 ```text
-├── main.py              # Application entry point & FastAPI routing
-├── requirements.txt      # System dependencies
-├── salt_pepper/         # Core logic for Salt & Pepper noise
-│   ├── detect.py        # Intensity-based detection engine
-│   ├── filter.py        # Adaptive median filtering logic
-│   └── evaluate.py      # MSE & PSNR calculation
-├── gaussian/            # Placeholder for Gaussian noise module
-├── speckle/             # Placeholder for Speckle noise module
-├── utils/               # Image processing helper functions
-└── static/              # Frontend Web UI (HTML/CSS/JS)
+├── main.py                 # FastAPI Application Server & Lifecycle Management
+├── backend/
+│   ├── db/                 # SQL Persistence (Database initialization & queries)
+│   ├── routes/             # WebSocket handlers & REST Endpoints
+│   ├── services/           # The Engine Core
+│   │   ├── tracking_service.py # YOLOv8 Tracking Implementation
+│   │   ├── clip_service.py     # CLIP Semantic Analyzers
+│   │   ├── ocr_service.py      # PaddleOCR Integration
+│   │   ├── flow_service.py     # Optical Flow Telemetry
+│   │   └── event_engine.py     # Rule-based Event Detection
+├── frontend/               
+│   ├── src/                # React/Vite UI Architecture
+│   └── dist/               # Production Build Artifacts
+└── static/                 # Storage for recordings, uploads, and cached frames
 ```
 
 ---
 
-## 🎭 SUPPORTED NOISE MODELS
-
-| Noise Type | Status | Detection | Filtering |
-| :--- | :--- | :--- | :--- |
-| **Salt & Pepper** | ✅ Active | Adaptive Threshold | Multilevel Median |
-| **Gaussian** | 🚧 Roadmap | Basic Analytics | Placeholder |
-| **Speckle** | 🚧 Roadmap | Basic Analytics | Placeholder |
-
----
-
-## 📡 API REFERENCE - `POST /denoise`
-
-**Input Type**: `multipart/form-data` with `file` field.
-
-**Sample JSON Result**:
-```json
-{
-  "detected_noise": "salt_pepper",
-  "confidence": 0.85,
-  "mse": 14.82,
-  "psnr": 36.42,
-  "processed_image": "data:image/png;base64,..."
-}
-```
-
----
-
-*Academic-grade implementation by Antigravity.*
+*Engineered for high-performance vision research by Antigravity.*
