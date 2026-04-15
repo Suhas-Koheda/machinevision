@@ -23,7 +23,7 @@ from backend.services.clip_service import get_clip_service
 from backend.services.scene_graph_service import construct_scene_graph
 from backend.services.event_engine import get_event_engine
 from backend.services.ocr_service import extract_text
-from backend.services.text_engine import get_incremental
+# from backend.services.text_engine import get_incremental, reset as reset_text_engine
 from backend.services.db_writer import save_detection_v2
 from backend.services.video_recorder import recorder
 
@@ -74,8 +74,7 @@ async def _process_perception_pipeline(frame: np.ndarray, ws: WebSocket | None, 
     # 6. OCR
     ocr_text = ""
     if force_intel or _frame_counter % 15 == 0:
-        raw_ocr = await asyncio.to_thread(extract_text, clean_frame)
-        ocr_text = get_incremental(raw_ocr)
+        ocr_text = await asyncio.to_thread(extract_text, clean_frame)
 
         
     # 7. Events
@@ -122,6 +121,7 @@ async def websocket_endpoint(ws: WebSocket):
     _current_session_id = f"live_{datetime.datetime.now().strftime('%m%d_%H%M')}"
     _frame_counter = 0
     _is_recording = False
+    # reset_text_engine()  # Clear OCR state for fresh session
     
     try:
         while True:
@@ -168,6 +168,24 @@ async def upload_video(file: UploadFile = File(...)):
     cap.release()
     if os.path.exists(temp_path): os.remove(temp_path)
     return JSONResponse(content={"status": "complete", "session_id": session_id})
+
+@router.post("/api/search-image")
+async def search_image(file: UploadFile = File(...)):
+    """
+    Search for similar frames in the archive using an uploaded image.
+    """
+    from PIL import Image
+    import io
+    from backend.services.db_writer import search_similar_frames
+    
+    contents = await file.read()
+    pil_img = Image.open(io.BytesIO(contents)).convert("RGB")
+    
+    clip = get_clip_service()
+    query_embedding = clip.get_image_embedding(pil_img)
+    
+    matches = await search_similar_frames(query_embedding)
+    return matches
 
 # Migration support for old UI
 @router.get("/api/sessions")

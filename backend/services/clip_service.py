@@ -43,6 +43,33 @@ class CLIPService:
 
         return results
 
+    def get_image_embedding(self, pil_img):
+        """
+        Generate CLIP embedding for a full image or crop.
+        Returns normalized numpy array.
+        """
+        inputs = self.processor(images=pil_img, return_tensors="pt").to(self.device)
+        with torch.no_grad():
+            outputs = self.model.get_image_features(**inputs)
+            # Some versions return objects, some return tensors
+            if torch.is_tensor(outputs):
+                features = outputs
+            elif hasattr(outputs, "image_embeds"):
+                features = outputs.image_embeds
+            elif hasattr(outputs, "pooler_output"):
+                features = outputs.pooler_output
+            else:
+                # Fallback to first element if it's a sequence
+                features = outputs[0] if hasattr(outputs, "__getitem__") else outputs
+        
+        # Final safety check: ensure we have a tensor with .norm
+        if not hasattr(features, "norm"):
+             raise AttributeError(f"CLIP feature extraction failed to produce a tensor. Got {type(features)}")
+
+        # Normalize
+        features = features / features.norm(p=2, dim=-1, keepdim=True)
+        return features.cpu().numpy().flatten()
+
 _clip = None
 def get_clip_service():
     global _clip

@@ -1,8 +1,8 @@
-# 🌌 BLACKOUT // AI Vision Intelligence Dashboard
+# 🌌 VisionAICore // AI Vision Intelligence Dashboard
 
 A high-performance, real-time video perception engine and intelligence archive designed for autonomous scene understanding, object persistence, and semantic reasoning. 
 
-**BLACKOUT** transforms raw video feeds into structured data by integrating state-of-the-art neural networks with a robust processing pipeline.
+**VisionAICore** transforms raw video feeds into structured data by integrating state-of-the-art neural networks with a robust processing pipeline.
 
 ---
 

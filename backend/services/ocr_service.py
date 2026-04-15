@@ -3,7 +3,6 @@ OCR Service using PaddleOCR.
 Initialised once; exposes extract_text(frame) → str.
 """
 import logging
-import re
 import numpy as np
 import cv2
 
@@ -23,22 +22,17 @@ def get_ocr():
     return _ocr
 
 
-def preprocess_for_ocr(frame: np.ndarray) -> np.ndarray:
-    """Convert to grayscale + Otsu threshold for cleaner OCR."""
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-    return thresh
 
-
-def extract_text(frame: np.ndarray, min_confidence: float = 0.75) -> str:
+def extract_text(frame: np.ndarray, min_confidence: float = 0.4) -> str:
     """
     Run OCR on frame.
     Returns cleaned, deduplicated text string.
     """
     try:
         ocr = get_ocr()
-        preprocessed = preprocess_for_ocr(frame)
-        result = ocr.ocr(preprocessed, cls=True)
+        # PaddleOCR often performs better on raw BGR frames or simple grayscale
+        # We'll try raw frame first as it preserves details Otsu might destroy
+        result = ocr.ocr(frame, cls=True)
 
         if not result or not result[0]:
             return ""
@@ -53,13 +47,12 @@ def extract_text(frame: np.ndarray, min_confidence: float = 0.75) -> str:
                 continue
             word, conf = text_info[0], text_info[1]
             word = word.strip()
-            # filters
+            
+            # Use a more relaxed confidence threshold
             if conf < min_confidence:
                 continue
-            if len(word) < 2:
-                continue
-            # Remove redundant internal spaces and junk characters
-            word = re.sub(r'[^a-zA-Z0-9\s]', '', word)
+            
+            # Basic cleanup: remove extra whitespace but keep special characters
             word = " ".join(word.split())
             if not word:
                 continue

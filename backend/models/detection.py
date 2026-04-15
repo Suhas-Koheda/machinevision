@@ -1,6 +1,6 @@
 import datetime
 import json
-from sqlalchemy import Column, Integer, String, DateTime, Text, Float
+from sqlalchemy import Column, Integer, String, DateTime, Text, Float, LargeBinary
 from backend.db.database import Base
 
 class Detection(Base):
@@ -21,3 +21,4 @@ class Detection(Base):
     events_data = Column(Text)
     
     image_path = Column(String)
+    embedding = Column(LargeBinary) # Stores CLIP feature vector (np.ndarray bytes)
