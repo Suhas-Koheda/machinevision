@@ -35,6 +35,11 @@ Constructs a dynamic **Scene Graph** and monitors for logic-based triggers.
 - **Event Engine**: Monitoring for entry/exit events and persistent state changes within the visual field.
 - **Intelligence Logging**: All events are timestamped and archived for historical audit.
 
+### 6. Neural Archive Search (New)
+Provides a visual-to-visual search engine for your intelligence archive.
+- **Query by Example**: Upload any image tow find matching entities or scenes across all stored sessions.
+- **Embedding Similarity**: Uses normalized 512-dim CLIP vectors for high-precision similarity matching.
+
 ---
 
 ## 🔬 NEURAL MODALITY SPECIFICATIONS
@@ -45,6 +50,7 @@ Constructs a dynamic **Scene Graph** and monitors for logic-based triggers.
 | **Semantics** | CLIP Vit-Base-Patch32 | Zero-shot visual-semantic understanding |
 | **Text Vision** | PaddleOCR (Angle-Cls) | Real-time text extraction & rectification |
 | **Motion** | Farneback Dense Flow | Physics-based movement telemetry |
+| **Cognition** | CLIP Embeddings | Semantic similarity & archive search |
 
 ---
 
@@ -53,9 +59,10 @@ Constructs a dynamic **Scene Graph** and monitors for logic-based triggers.
 | Feature | Description |
 | :--- | :--- |
 | **Real-time Feed** | 20fps low-latency video streaming via binary WebSockets. |
+| **Neural Search** | Upload a reference image to locate similar occurrences in the archive. |
+| **Session Summaries** | Automated OCR compilation, unique word analytics, and intelligence export. |
 | **Video Archival** | Backend-side recording of processed streams into high-compression containers. |
-| **Voice Transcription** | Browser-integrated Speech-to-Text for logging verbal observations alongside visual intelligence. |
-| **Intelligence Archive** | SQL-backed persistence for sessions, keyframes, and metadata. |
+| **Intelligence Archive** | SQL-backed persistence for sessions, keyframes, and metadata (including embeddings). |
 | **Local Uploads** | Batch process pre-recorded video files through the intelligence pipeline. |
 
 ---
