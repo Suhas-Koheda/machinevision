@@ -1,3 +1,4 @@
+import os
 import torch
 import cv2
 from PIL import Image
@@ -9,10 +10,20 @@ logger = logging.getLogger(__name__)
 class CLIPService:
     def __init__(self, model_name="openai/clip-vit-base-patch32"):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        # Set offline mode environment variables to prevent connection attempts
+        os.environ["TRANSFORMERS_OFFLINE"] = "1"
+        os.environ["HF_HUB_OFFLINE"] = "1"
+
         logger.info(f"*** INITIALIZING SEMANTIC ENGINE (CLIP) on {self.device} ***")
-        # Forcing use_safetensors=False to avoid re-downloading 600MB if user already has .bin version
-        self.model = CLIPModel.from_pretrained(model_name, use_safetensors=False).to(self.device)
-        self.processor = CLIPProcessor.from_pretrained(model_name)
+        try:
+            # Try loading locally first to avoid connection errors
+            self.model = CLIPModel.from_pretrained(model_name, use_safetensors=False, local_files_only=True).to(self.device)
+            self.processor = CLIPProcessor.from_pretrained(model_name, local_files_only=True)
+        except Exception as e:
+            logger.warning(f"Local load failed ({e}), attempting standard load with connection timeout safety.")
+            # Fallback to standard if local fails (e.g. first run)
+            self.model = CLIPModel.from_pretrained(model_name, use_safetensors=False).to(self.device)
+            self.processor = CLIPProcessor.from_pretrained(model_name)
 
         self.prompts = ["person sitting", "person standing", "person walking", "person using laptop", "empty chair"]
 

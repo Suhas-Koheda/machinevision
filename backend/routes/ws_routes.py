@@ -23,7 +23,7 @@ from backend.services.clip_service import get_clip_service
 from backend.services.scene_graph_service import construct_scene_graph
 from backend.services.event_engine import get_event_engine
 from backend.services.ocr_service import extract_text
-# from backend.services.text_engine import get_incremental, reset as reset_text_engine
+from backend.services.text_engine import get_incremental, reset as reset_text_engine, get_full_history, get_summarizer
 from backend.services.db_writer import save_detection_v2
 from backend.services.video_recorder import recorder
 
@@ -72,9 +72,10 @@ async def _process_perception_pipeline(frame: np.ndarray, ws: WebSocket | None, 
     graph = construct_scene_graph(detections, semantic_tags)
     
     # 6. OCR
-    ocr_text = ""
+    processed_text = ""
     if force_intel or _frame_counter % 15 == 0:
-        ocr_text = await asyncio.to_thread(extract_text, clean_frame)
+        raw_ocr = await asyncio.to_thread(extract_text, clean_frame)
+        processed_text = get_incremental(raw_ocr)
 
         
     # 7. Events
@@ -90,7 +91,7 @@ async def _process_perception_pipeline(frame: np.ndarray, ws: WebSocket | None, 
         "objects": detections,
         "semantic": semantic_tags,
         "graph": graph,
-        "text": ocr_text,
+        "text": processed_text,
         "events": events,
         "noise_score": round(noise_score, 1),
         "motion_score": round(float(motion_score), 2),
@@ -121,7 +122,7 @@ async def websocket_endpoint(ws: WebSocket):
     _current_session_id = f"live_{datetime.datetime.now().strftime('%m%d_%H%M')}"
     _frame_counter = 0
     _is_recording = False
-    # reset_text_engine()  # Clear OCR state for fresh session
+    reset_text_engine()  # Clear OCR state for fresh session
     
     try:
         while True:
@@ -207,4 +208,17 @@ async def remove_session(session_id: str):
 async def remove_frame(frame_id: int):
     from backend.services.db_writer import delete_frame
     return await delete_frame(frame_id)
+
+@router.get("/api/session/summary")
+async def get_session_summary():
+    """
+    Summarize the current session's OCR tokens using Transformers.
+    """
+    history = get_full_history()
+    if not history:
+        return {"summary": "No text captured yet."}
+    
+    summarizer = get_summarizer()
+    summary = await asyncio.to_thread(summarizer.summarize, history)
+    return {"summary": summary, "original_length": len(history)}
 
